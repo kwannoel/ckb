@@ -15,9 +15,13 @@ mkShell {
     clang
     llvmPackages.libclang
     rustc
+    libsodium
   ];
      # export SNAPPY_LIB_DIR=/usr/local/lib
   shellHook = ''
-     LIBCLANG_PATH=${pkgs.llvmPackages.libclang.lib}/lib
+     export LIBCLANG_PATH=${pkgs.llvmPackages.libclang.lib}/lib
+     alias capsule=$HOME/.cargo/bin/capsule
+     alias ckb-cli=$HOME/projects/ckb-cli/target/release/ckb-cli
+     alias ckb=$HOME/projects/ckb/target/release/ckb
   '';
 }
