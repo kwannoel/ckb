@@ -1,3 +1,5 @@
+# Environment for building ckb
+# cargo install --path . -f --locked
 { pkgs ? import <nixpkgs> {} }: # TODO: This is nixpkgs 21.05, pin the nixpkgs ver
 
 with pkgs;

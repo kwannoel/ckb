@@ -3,6 +3,7 @@ use ckb_chain_spec::consensus::Consensus;
 use ckb_constant::hardfork::{mainnet, testnet};
 use ckb_jsonrpc_types::{OutputsValidator, RawTxPool, Script, Transaction, TxPoolInfo};
 use ckb_logger::error;
+use ckb_logger;
 use ckb_script::IllTransactionChecker;
 use ckb_shared::{shared::Shared, Snapshot};
 use ckb_types::{core, packed, prelude::*, H256};
@@ -102,6 +103,8 @@ pub trait PoolRpc {
         &self,
         tx: Transaction,
         outputs_validator: Option<OutputsValidator>,
+        i: Option<u8>,
+        j: Option<u8>,
     ) -> Result<H256>;
 
     /// Returns the transaction pool information.
@@ -359,7 +362,11 @@ impl PoolRpc for PoolRpcImpl {
         &self,
         tx: Transaction,
         outputs_validator: Option<OutputsValidator>,
+        i: Option<u8>,
+        j: Option<u8>,
     ) -> Result<H256> {
+        ckb_logger::info!("Got param 1: {:?}", i);
+        ckb_logger::info!("Got param 2: {:?}", j);
         let tx: packed::Transaction = tx.into();
         let tx: core::TransactionView = tx.into_view();
 
