@@ -370,6 +370,9 @@ impl PoolRpc for PoolRpcImpl {
         let tx: packed::Transaction = tx.into();
         let tx: core::TransactionView = tx.into_view();
 
+        // Check if we should run the outputs validator,
+        // run it if necessary
+        // This checks if your script is well-known.
         if let Err(e) = match outputs_validator {
             Some(OutputsValidator::WellKnownScriptsOnly) | None => {
                 WellKnownScriptsOnlyValidator::new(
@@ -392,6 +395,8 @@ impl PoolRpc for PoolRpcImpl {
             ));
         }
 
+        // Check the configuration of the tx pool,
+        // if we want to reject scripts which trigger known bugs.
         if self.reject_ill_transactions {
             let snapshot: &Snapshot = &self.shared.snapshot();
             let consensus = snapshot.consensus();
@@ -408,17 +413,23 @@ impl PoolRpc for PoolRpcImpl {
             }
         }
 
+        // Submit the incoming transaction to the local transaction pool.
         let tx_pool = self.shared.tx_pool_controller();
-        let submit_tx = tx_pool.submit_local_tx(tx.clone());
+        let submit_tx = tx_pool.submit_local_tx(tx.clone()); // TODO: Miner probably watches and
+                                                             // grabs txes from here.
 
+
+        // Check the result of submitting it to the tx pool.
         if let Err(e) = submit_tx {
             error!("send submit_tx request error {}", e);
             return Err(RPCError::ckb_internal_error(e));
         }
 
         let tx_hash = tx.hash();
+        // Check the result of running the transaction
         match submit_tx.unwrap() {
-            Ok(_) => Ok(tx_hash.unpack()),
+            Ok(_) => Ok(tx_hash.unpack()), // If success, just return the txhash.
+            // Otherwise indicate the relevant error.
             Err(e) => match RPCError::downcast_submit_transaction_reject(&e) {
                 Some(reject) => Err(RPCError::from_submit_transaction_reject(reject)),
                 None => Err(RPCError::from_ckb_error(e)),
