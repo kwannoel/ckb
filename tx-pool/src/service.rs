@@ -604,16 +604,20 @@ impl TxPoolServiceBuilder {
         self.callbacks.register_reject(callback);
     }
 
-    /// Start a background thread tx-pool service by taking ownership of the Builder, and returns a TxPoolController.
+    /// Start a background thread tx-pool service by taking ownership of the Builder,
+    /// and returns a TxPoolController.
     pub fn start(self, network: NetworkController) {
         let last_txs_updated_at = Arc::new(AtomicU64::new(0));
         let consensus = self.snapshot.cloned_consensus();
+
+        // Initialize tx pool
         let tx_pool = TxPool::new(
             self.tx_pool_config,
             self.snapshot,
             Arc::clone(&last_txs_updated_at),
         );
 
+        // Load existing tx pool
         let txs = match tx_pool.load_from_file() {
             Ok(txs) => txs,
             Err(e) => {
@@ -623,6 +627,7 @@ impl TxPoolServiceBuilder {
             }
         };
 
+        // Start the tx pool service.
         let service = TxPoolService {
             tx_pool_config: Arc::new(tx_pool.config.clone()),
             tx_pool: Arc::new(RwLock::new(tx_pool)),

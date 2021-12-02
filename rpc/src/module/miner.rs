@@ -246,6 +246,64 @@ impl MinerRpc for MinerRpcImpl {
             None => None,
         };
 
+        // Accessing shared resources
+        // -> First we have to discuss how the txpool gets started,
+        //    because the miner rpc accesses the tx pool under the hood.
+        // -> The txpool is initialized using a TxPoolServiceBuilder.
+        // -> This creates a template for two things:
+        //    1. the service which maintains the tx pool.
+        //    2. the controller of the service.
+        //    3. The channel used by the controller to message the service with commands.
+        // -> The first thing we do is to initialize the TxPoolServiceBuilder.
+        //    This gives us the TxPoolController.
+        // -> Once that's initialized, we call the `start` method.
+        //    This start method starts the TxPoolService.
+        // -> When the TxPoolService is started,
+        //    we also configure the listening thread, on the service side
+        //    to listen for messages coming from the controller.
+        //    This is done by spawning a thread
+        //    and using the `process` method to handle messages.
+        //
+        // What happens when we send an RPC call?
+        //
+        // 1. The miner calls this RPC endpoint, the functionality below gets triggered.
+        // -> Below, the first step is to call get_block_template from the shared resource manager.
+        // -> This calls the get_block_template of tx_pool_controller,
+        //
+        // 2. Accessing the txpool controller resource.
+        // -> which accesses the tx pool controller shared resource.
+        // -> from there we call get_block_template of the tx pool shared resource.
+        // -> This inserts the current snapshot
+        // -> Then it calls the tx pool controller method get_block_template
+        // -> This is a wrapper which calls get_block_template_with_block_assembler_config
+        // -> We then construct a request object,
+        // -> And send a message of type BlockTemplate(request) to the underlying
+        //    txpool service.
+        //    NOTE: In the above section we discussed how service and controller
+        //    are initialized. There, the handler for the incoming messages from the controller
+        //    also is configured.
+        // -> The TxPoolController has a `sender` field, this field binds to the write port of the channel.
+        //    NOTE: The TxPoolController is initialized together with the TxPoolService,
+        //    in TxPoolServiceBuilder.
+        //    It initializes the channel,
+        //    and passes the `sender` side to the controller
+        //    the `receiver` side to the service.
+        //    see the above section on initializing the txpool service.
+        // -> We send the messages over the write port (sender),
+        //
+        // 3. The txpool service receives the message
+        // -> On the service side, there is a `process` handler,
+        //    which matches the incoming message
+        // -> This matches on `Message::BlockTemplate`,
+        //    and dispatches a call to the get_block_template
+        //    method of the service.
+        // -> Next, we are interested in the section
+        //    that returns **cellbase**, since this is where we
+        //    indicate the transaction pending confirmations to the miner.
+        //    This is fetched from the snapshot, via the call:
+        //    build_block_template_cellbase(snapshot, <assembler_config>)
+        // -> grab the response from sending the message,
+        // -> return the block template result.
         self.shared
             .get_block_template(bytes_limit, proposals_limit, max_version.map(Into::into))
             .map_err(|err| {

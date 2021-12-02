@@ -962,12 +962,26 @@ impl TxPoolService {
 
         let (ret, snapshot) = self.pre_check(&tx).await;
 
+        // See: https://docs.nervos.org/docs/essays/lifecycle
+        //
+        // Step 1
+        // ======
+        // If the prechecks fail propagate the error.
+        // At this point input cells should be resolved.
         let (tip_hash, rtx, status, fee, tx_size) = try_or_return_with_snapshot!(ret, snapshot);
 
         let verify_cache = self.fetch_tx_verify_cache(&tx_hash).await;
         let max_cycles = declared_cycles.unwrap_or_else(|| self.consensus.max_block_cycles());
         let tip_header = snapshot.tip_header();
         let tx_env = status.with_env(tip_header);
+        // Step 2
+        // This runs all the prechecks,
+        // but ALSO executes the script environment.
+        // See:
+        // ContextualTransactionVerifier
+        // -> self.verify
+        // -> self.script.verify
+        // -> self.script.inner.verify -> ...
         let verified_ret = verify_rtx(&snapshot, &rtx, &tx_env, &verify_cache, max_cycles);
 
         let verified = try_or_return_with_snapshot!(verified_ret, snapshot);
