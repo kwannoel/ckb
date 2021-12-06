@@ -960,14 +960,15 @@ impl TxPoolService {
     ) -> (Result<Completed, Reject>, Arc<Snapshot>) {
         let tx_hash = tx.hash();
 
-        let (ret, snapshot) = self.pre_check(&tx).await;
 
         // See: https://docs.nervos.org/docs/essays/lifecycle
         //
         // Step 1
         // ======
         // If the prechecks fail propagate the error.
-        // At this point input cells should be resolved.
+        // At this point input cells should be resolved,
+        // the `pre_check` function calls resolve_tx which resolves the transaction.
+        let (ret, snapshot) = self.pre_check(&tx).await;
         let (tip_hash, rtx, status, fee, tx_size) = try_or_return_with_snapshot!(ret, snapshot);
 
         let verify_cache = self.fetch_tx_verify_cache(&tx_hash).await;

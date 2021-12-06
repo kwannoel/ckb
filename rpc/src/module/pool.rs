@@ -103,8 +103,8 @@ pub trait PoolRpc {
         &self,
         tx: Transaction,
         outputs_validator: Option<OutputsValidator>,
-        i: Option<u8>,
-        j: Option<u8>,
+        rebase_script: Option<u8>, // TODO: Declare types for these...
+        account_indices: Option<u8>,
     ) -> Result<H256>;
 
     /// Returns the transaction pool information.
@@ -362,8 +362,8 @@ impl PoolRpc for PoolRpcImpl {
         &self,
         tx: Transaction,
         outputs_validator: Option<OutputsValidator>,
-        i: Option<u8>,
-        j: Option<u8>,
+        rebase_script: Option<u8>,
+        account_indices: Option<u8>,
     ) -> Result<H256> {
         ckb_logger::info!("Got param 1: {:?}", i);
         ckb_logger::info!("Got param 2: {:?}", j);
@@ -414,10 +414,13 @@ impl PoolRpc for PoolRpcImpl {
         }
 
         // Submit the incoming transaction to the local transaction pool.
+        // If it is malleable -> See if we need to / can rebase
+        // otherwise proceed as per normal.
         let tx_pool = self.shared.tx_pool_controller();
-        let submit_tx = tx_pool.submit_local_tx(tx.clone()); // TODO: Miner probably watches and
-                                                             // grabs txes from here.
-
+        let submit_tx = match (rebase_script, account_indices) {
+            (Some s, Some idxs) => tx_pool.submit_malleable_local_tx(tx.clone(), s, idxs),
+            _ => tx_pool.submit_local_tx(tx.clone());
+        }
 
         // Check the result of submitting it to the tx pool.
         if let Err(e) = submit_tx {

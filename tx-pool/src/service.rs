@@ -246,6 +246,25 @@ impl TxPoolController {
             .map_err(Into::into)
     }
 
+    /// Submit local malleable tx to tx-pool
+    pub fn submit_malleable_local_tx(&self, tx: TransactionView, rebase_script, account_indices) -> Result<SubmitTxResult, AnyError> {
+        // Check against account map
+
+
+        // Continue as per normal after rebasing.
+        let (responder, response) = oneshot::channel();
+        let request = Request::call(tx, responder);
+        self.sender
+            .try_send(Message::SubmitLocalTx(request))
+            .map_err(|e| {
+                let (_m, e) = handle_try_send_error(e);
+                e
+            })?;
+        block_in_place(|| response.recv())
+            .map_err(handle_recv_error)
+            .map_err(Into::into)
+    }
+
     /// Submit remote tx with declared cycles and origin to tx-pool
     pub async fn submit_remote_tx(
         &self,
