@@ -104,7 +104,7 @@ pub trait PoolRpc {
         tx: Transaction,
         outputs_validator: Option<OutputsValidator>,
         rebase_script: Option<u8>, // TODO: Declare types for these...
-        account_indices: Option<u8>,
+        account_indices: Option<Vec<u8>>,
     ) -> Result<H256>;
 
     /// Returns the transaction pool information.
@@ -363,10 +363,10 @@ impl PoolRpc for PoolRpcImpl {
         tx: Transaction,
         outputs_validator: Option<OutputsValidator>,
         rebase_script: Option<u8>,
-        account_indices: Option<u8>,
+        account_indices: Option<Vec<u8>>,
     ) -> Result<H256> {
-        ckb_logger::info!("Got param 1: {:?}", i);
-        ckb_logger::info!("Got param 2: {:?}", j);
+        ckb_logger::info!("Got param 1: {:?}", rebase_script);
+        ckb_logger::info!("Got param 2: {:?}", account_indices);
         let tx: packed::Transaction = tx.into();
         let tx: core::TransactionView = tx.into_view();
 
@@ -418,9 +418,9 @@ impl PoolRpc for PoolRpcImpl {
         // otherwise proceed as per normal.
         let tx_pool = self.shared.tx_pool_controller();
         let submit_tx = match (rebase_script, account_indices) {
-            (Some s, Some idxs) => tx_pool.submit_malleable_local_tx(tx.clone(), s, idxs),
-            _ => tx_pool.submit_local_tx(tx.clone());
-        }
+            (Some(s), Some(idxs)) => tx_pool.submit_malleable_local_tx(tx.clone(), s, idxs),
+            _ => tx_pool.submit_local_tx(tx.clone()),
+        };
 
         // Check the result of submitting it to the tx pool.
         if let Err(e) = submit_tx {

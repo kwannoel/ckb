@@ -72,3 +72,12 @@ Mainnet Lina or Testnet Aggron, switch to the branch [master].
 - [Platform Support](docs/platform-support.md)
 
 You can find a more comprehensive document website at [https://docs.nervos.org](https://docs.nervos.org).
+
+
+## AVOUM Development
+
+See `shell.nix`.
+
+``` sh
+cargo install --path . -f --locked
+```

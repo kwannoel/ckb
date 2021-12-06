@@ -7,6 +7,27 @@ use ckb_logger::info;
 use ckb_network::{DefaultExitHandler, ExitHandler};
 use ckb_types::core::cell::setup_system_cell_cache;
 
+
+// TODO: Move these into it's own module / crate.
+// --- START
+use ckb_types::core::TransactionView;
+use std::collections::HashMap;
+use ckb_types::packed::Byte32; // Should I just use a primitve array?
+
+// This is a map between account ids and latest transactions.
+struct AccountCellMap {
+    inner: HashMap<Byte32, TransactionView>
+}
+
+impl AccountCellMap {
+    fn new() -> Self {
+        let inner = HashMap::<Byte32, TransactionView>::new();
+        Self { inner }
+    }
+}
+
+// --- END
+
 pub fn run(args: RunArgs, version: Version, async_handle: Handle) -> Result<(), ExitCode> {
     deadlock_detection();
 
@@ -40,6 +61,8 @@ pub fn run(args: RunArgs, version: Version, async_handle: Handle) -> Result<(), 
     );
 
     launcher.check_assume_valid_target(&shared);
+
+    let mut latest_states = AccountCellMap::new();
 
     let chain_controller = launcher.start_chain_service(&shared, pack.take_proposal_table());
 

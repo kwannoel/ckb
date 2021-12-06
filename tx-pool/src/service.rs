@@ -247,7 +247,11 @@ impl TxPoolController {
     }
 
     /// Submit local malleable tx to tx-pool
-    pub fn submit_malleable_local_tx(&self, tx: TransactionView, rebase_script, account_indices) -> Result<SubmitTxResult, AnyError> {
+    pub fn submit_malleable_local_tx(
+        &self,
+        tx: TransactionView,
+        rebase_script: u8, // This is dummy, we only handle 1 rebase script for the auction scenario.
+        account_indices: Vec<u8>) -> Result<SubmitTxResult, AnyError> {
         // Check against account map
 
 
