@@ -525,6 +525,7 @@ name = "ckb-chain"
 version = "0.101.0"
 dependencies = [
  "ckb-app-config",
+ "ckb-avoum",
  "ckb-chain-spec",
  "ckb-channel",
  "ckb-dao",

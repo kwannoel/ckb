@@ -8,6 +8,7 @@ use ckb_network::{DefaultExitHandler, ExitHandler};
 use ckb_types::core::cell::setup_system_cell_cache;
 
 use ckb_avoum::AccountCellMap;
+use std::sync::{Arc, RwLock};
 
 pub fn run(args: RunArgs, version: Version, async_handle: Handle) -> Result<(), ExitCode> {
     deadlock_detection();
@@ -44,8 +45,10 @@ pub fn run(args: RunArgs, version: Version, async_handle: Handle) -> Result<(), 
     launcher.check_assume_valid_target(&shared);
 
     let latest_states: AccountCellMap = AccountCellMap::new();
+    let latest_states_hdl: Arc<RwLock<AccountCellMap>> = Arc::new(RwLock::new(latest_states));
 
-    let chain_controller = launcher.start_chain_service(&shared, pack.take_proposal_table(), &latest_states);
+    let chain_controller = launcher
+        .start_chain_service(&shared, pack.take_proposal_table(), latest_states_hdl.clone());
 
     let (network_controller, rpc_server) = launcher.start_network_and_rpc(
         &shared,

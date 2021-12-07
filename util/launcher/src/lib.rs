@@ -32,7 +32,7 @@ use ckb_sync::{NetTimeProtocol, Relayer, SyncShared, Synchronizer};
 use ckb_types::{packed::Byte32, prelude::*};
 use ckb_verification::GenesisVerifier;
 use ckb_verification_traits::Verifier;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use ckb_avoum::AccountCellMap;
 
@@ -232,9 +232,10 @@ impl Launcher {
         &self,
         shared: &Shared,
         table: ProposalTable,
-        latest_states: &AccountCellMap) -> ChainController {
+        latest_states: Arc<RwLock<AccountCellMap>>
+    ) -> ChainController {
         let chain_service = ChainService::new(shared.clone(), table);
-        let chain_controller = chain_service.start(Some("ChainService"));
+        let chain_controller = chain_service.start(Some("ChainService"), latest_states);
         info!("chain genesis hash: {:#x}", shared.genesis_hash());
         chain_controller
     }

@@ -26,9 +26,12 @@ use ckb_types::{
 use ckb_verification::{BlockVerifier, InvalidParentError, NonContextualBlockTxsVerifier};
 use ckb_verification_contextual::{ContextualBlockVerifier, VerifyContext};
 use ckb_verification_traits::{Switch, Verifier};
+
+use ckb_avoum::AccountCellMap;
+
 use faketime::unix_time_as_millis;
 use std::collections::{HashSet, VecDeque};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::{cmp, thread};
 
 type ProcessBlockRequest = Request<(Arc<BlockView>, Switch), Result<bool, Error>>;
@@ -45,6 +48,7 @@ pub struct ChainController {
     process_block_sender: Sender<ProcessBlockRequest>,
     truncate_sender: Sender<TruncateRequest>, // Used for testing only
     stop: Option<StopHandler<()>>,
+    latest_states: Arc<RwLock<AccountCellMap>>,
 }
 
 impl Drop for ChainController {
@@ -59,11 +63,13 @@ impl ChainController {
         process_block_sender: Sender<ProcessBlockRequest>,
         truncate_sender: Sender<TruncateRequest>,
         stop: StopHandler<()>,
+        latest_states: Arc<RwLock<AccountCellMap>>,
     ) -> Self {
         ChainController {
             process_block_sender,
             truncate_sender,
             stop: Some(stop),
+            latest_states,
         }
     }
     /// Inserts the block into database.
@@ -116,6 +122,7 @@ impl ChainController {
             stop: None,
             truncate_sender: self.truncate_sender.clone(),
             process_block_sender: self.process_block_sender.clone(),
+            latest_states: self.latest_states.clone(),
         }
     }
 }
@@ -209,7 +216,11 @@ impl ChainService {
     }
 
     /// start background single-threaded service with specified thread_name.
-    pub fn start<S: ToString>(mut self, thread_name: Option<S>) -> ChainController {
+    pub fn start<S: ToString>(
+        mut self,
+        thread_name: Option<S>,
+        latest_states: Arc<RwLock<AccountCellMap>>,
+    ) -> ChainController {
         let (signal_sender, signal_receiver) = channel::bounded::<()>(SIGNAL_CHANNEL_SIZE);
         let (process_block_sender, process_block_receiver) = channel::bounded(DEFAULT_CHANNEL_SIZE);
         let (truncate_sender, truncate_receiver) = channel::bounded(1);
@@ -258,7 +269,7 @@ impl ChainService {
             "chain".to_string(),
         );
 
-        ChainController::new(process_block_sender, truncate_sender, stop)
+        ChainController::new(process_block_sender, truncate_sender, stop, latest_states)
     }
 
     fn make_fork_for_truncate(&self, target: &HeaderView, current_tip: &HeaderView) -> ForkChanges {
