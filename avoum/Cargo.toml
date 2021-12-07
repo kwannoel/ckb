@@ -1,0 +1,10 @@
+[package]
+name = "ckb-avoum"
+version = "0.1.0"
+authors = ["Nervos Core Dev <dev@nervos.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ckb-types = { path = "../util/types", version = "= 0.101.0" }

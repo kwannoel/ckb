@@ -441,6 +441,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ckb-avoum"
+version = "0.1.0"
+dependencies = [
+ "ckb-types",
+]
+
+[[package]]
 name = "ckb-benches"
 version = "0.101.0"
 dependencies = [
@@ -476,6 +483,7 @@ dependencies = [
  "base64",
  "ckb-app-config",
  "ckb-async-runtime",
+ "ckb-avoum",
  "ckb-build-info",
  "ckb-chain",
  "ckb-chain-iter",
@@ -743,6 +751,7 @@ version = "0.101.0"
 dependencies = [
  "ckb-app-config",
  "ckb-async-runtime",
+ "ckb-avoum",
  "ckb-build-info",
  "ckb-chain",
  "ckb-chain-spec",

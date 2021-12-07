@@ -84,7 +84,8 @@ members = [
     "rpc",
     "util/launcher/migration-template",
     "util/launcher",
-    "ckb-bin"
+    "ckb-bin",
+    "avoum"
 ]
 
 [profile.release]

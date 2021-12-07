@@ -34,7 +34,10 @@ use ckb_verification::GenesisVerifier;
 use ckb_verification_traits::Verifier;
 use std::sync::Arc;
 
+use ckb_avoum::AccountCellMap;
+
 pub use crate::shared_builder::{SharedBuilder, SharedPackage};
+
 
 const SECP256K1_BLAKE160_SIGHASH_ALL_ARG_LEN: usize = 20;
 
@@ -225,7 +228,11 @@ impl Launcher {
     }
 
     /// Start chain service, return ChainController
-    pub fn start_chain_service(&self, shared: &Shared, table: ProposalTable) -> ChainController {
+    pub fn start_chain_service(
+        &self,
+        shared: &Shared,
+        table: ProposalTable,
+        latest_states: &AccountCellMap) -> ChainController {
         let chain_service = ChainService::new(shared.clone(), table);
         let chain_controller = chain_service.start(Some("ChainService"));
         info!("chain genesis hash: {:#x}", shared.genesis_hash());

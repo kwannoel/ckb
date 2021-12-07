@@ -37,6 +37,7 @@ ckb-verification-traits = { path = "../verification/traits", version = "= 0.101.
 ckb-async-runtime = { path = "../util/runtime", version = "= 0.101.0" }
 ckb-db = { path = "../db", version = "= 0.101.0" }
 ckb-launcher = { path = "../util/launcher", version = "= 0.101.0" }
+ckb-avoum = {path = "../avoum", version = "= 0.1.0"}
 base64 = "0.13.0"
 tempfile = "3.0"
 rayon = "1.0"
