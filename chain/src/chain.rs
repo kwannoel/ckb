@@ -80,7 +80,28 @@ impl ChainController {
     ///
     /// [BlockVerifier] [NonContextualBlockTxsVerifier] [ContextualBlockVerifier] will performed
     pub fn process_block(&self, block: Arc<BlockView>) -> Result<bool, Error> {
-        self.internal_process_block(block, Switch::NONE)
+        let res = self.internal_process_block(block, Switch::NONE);
+        match res {
+            // Block has been committed, txs in the block are valid.
+            Ok(true) => {
+                // First extract transactions.
+                // Next filter through the input cells.
+                // TODO:
+                // How should we filter through the cells???
+                // My proposal:
+                // 1. Grab the data from all the output cells,
+                //    since the account id could be stored in anyone of them.
+                //    and we only want live_cells
+                // 2. Deserialize the data in the same way we do it in avoum-auction,
+                //    if it fails it is not account cell.
+                //    Or should we change avoum-auction to specify the account id as the first 20 bytes????
+                // 3. Check if it matches account ids we already have,
+                //    if yes -> we want to include the tx.
+                //    if no -> don't include the tx.
+            }
+            _ => {}
+        }
+        res
     }
 
     /// Internal method insert block for test
