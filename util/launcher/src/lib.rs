@@ -32,8 +32,8 @@ use ckb_sync::{NetTimeProtocol, Relayer, SyncShared, Synchronizer};
 use ckb_types::{packed::Byte32, prelude::*};
 use ckb_verification::GenesisVerifier;
 use ckb_verification_traits::Verifier;
-use std::sync::{Arc, RwLock};
 
+use std::sync::{Arc, RwLock};
 use ckb_avoum::AccountCellMap;
 
 pub use crate::shared_builder::{SharedBuilder, SharedPackage};
@@ -191,6 +191,7 @@ impl Launcher {
     pub fn build_shared(
         &self,
         block_assembler_config: Option<BlockAssemblerConfig>,
+        latest_states: Arc<RwLock<AccountCellMap>>,
     ) -> Result<(Shared, SharedPackage), ExitCode> {
         let shared_builder = SharedBuilder::new(
             &self.args.config.bin_name,
@@ -198,6 +199,7 @@ impl Launcher {
             &self.args.config.db,
             Some(self.args.config.ancient.clone()),
             self.async_handle.clone(),
+            Some(latest_states),
         )?;
 
         let (shared, pack) = shared_builder

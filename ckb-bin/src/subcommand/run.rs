@@ -21,7 +21,10 @@ pub fn run(args: RunArgs, version: Version, async_handle: Handle) -> Result<(), 
     let miner_enable = block_assembler_config.is_some();
     let exit_handler = DefaultExitHandler::default();
 
-    let (shared, mut pack) = launcher.build_shared(block_assembler_config)?;
+    let latest_states: AccountCellMap = AccountCellMap::new();
+    let latest_states_hdl: Arc<RwLock<AccountCellMap>> = Arc::new(RwLock::new(latest_states));
+
+    let (shared, mut pack) = launcher.build_shared(block_assembler_config, latest_states_hdl.clone())?;
 
     // spawn freezer background process
     let _freezer = shared.spawn_freeze();
@@ -43,9 +46,6 @@ pub fn run(args: RunArgs, version: Version, async_handle: Handle) -> Result<(), 
     );
 
     launcher.check_assume_valid_target(&shared);
-
-    let latest_states: AccountCellMap = AccountCellMap::new();
-    let latest_states_hdl: Arc<RwLock<AccountCellMap>> = Arc::new(RwLock::new(latest_states));
 
     let chain_controller = launcher
         .start_chain_service(&shared, pack.take_proposal_table(), latest_states_hdl.clone());

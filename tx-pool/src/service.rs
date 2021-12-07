@@ -31,10 +31,13 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{
     atomic::{AtomicBool, AtomicU64, Ordering},
     Arc,
+    RwLock as AccountRwLock,
 };
 use tokio::sync::watch;
 use tokio::sync::{mpsc, RwLock};
 use tokio::task::block_in_place;
+
+use ckb_avoum::AccountCellMap;
 
 pub(crate) const DEFAULT_CHANNEL_SIZE: usize = 512;
 
@@ -120,6 +123,7 @@ pub struct TxPoolController {
     stop: StopHandler<()>,
     chunk_stop: StopHandler<Command>,
     started: Arc<AtomicBool>,
+    latest_states: Arc<AccountRwLock<AccountCellMap>>,
 }
 
 impl Drop for TxPoolController {
@@ -559,6 +563,7 @@ impl TxPoolServiceBuilder {
         txs_verify_cache: Arc<RwLock<TxVerificationCache>>,
         handle: &Handle,
         tx_relay_sender: ckb_channel::Sender<(Option<PeerIndex>, bool, Byte32)>,
+        latest_states: Arc<AccountRwLock<AccountCellMap>>,
     ) -> (TxPoolServiceBuilder, TxPoolController) {
         let (sender, receiver) = mpsc::channel(DEFAULT_CHANNEL_SIZE);
         let (reorg_sender, reorg_receiver) = mpsc::channel(DEFAULT_CHANNEL_SIZE);
@@ -585,6 +590,7 @@ impl TxPoolServiceBuilder {
             chunk_tx,
             stop,
             started: Arc::clone(&started),
+            latest_states,
         };
 
         let builder = TxPoolServiceBuilder {

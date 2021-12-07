@@ -16,6 +16,7 @@ pub fn replay(args: ReplayArgs, async_handle: Handle) -> Result<(), ExitCode> {
         &args.config.db,
         None,
         async_handle.clone(),
+        None,
     )?;
     let (shared, _) = shared_builder
         .consensus(args.consensus.clone())
@@ -43,6 +44,7 @@ pub fn replay(args: ReplayArgs, async_handle: Handle) -> Result<(), ExitCode> {
             &tmp_db_config,
             None,
             async_handle,
+            None, // FIXME
         )?;
         let (tmp_shared, mut pack) = shared_builder
             .consensus(args.consensus)

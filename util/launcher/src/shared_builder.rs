@@ -32,7 +32,9 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
+
+use ckb_avoum::AccountCellMap;
 
 /// Shared builder for construct new shared.
 pub struct SharedBuilder {
@@ -44,6 +46,7 @@ pub struct SharedBuilder {
     block_assembler_config: Option<BlockAssemblerConfig>,
     notify_config: Option<NotifyConfig>,
     async_handle: Handle,
+    latest_states: Option<Arc<RwLock<AccountCellMap>>>,
 }
 
 pub fn open_or_create_db(
@@ -119,6 +122,7 @@ impl SharedBuilder {
         db_config: &DBConfig,
         ancient: Option<PathBuf>,
         async_handle: Handle,
+        latest_states: Option<Arc<RwLock<AccountCellMap>>>,
     ) -> Result<SharedBuilder, ExitCode> {
         let db = open_or_create_db(bin_name, root_dir, db_config)?;
 
@@ -131,6 +135,7 @@ impl SharedBuilder {
             store_config: None,
             block_assembler_config: None,
             async_handle,
+            latest_states,
         })
     }
 
@@ -156,6 +161,7 @@ impl SharedBuilder {
             store_config: None,
             block_assembler_config: None,
             async_handle: runtime.borrow().get_or_init(new_global_runtime).0.clone(),
+            latest_states: None,
         })
     }
 }
@@ -291,6 +297,7 @@ impl SharedBuilder {
             block_assembler_config,
             notify_config,
             async_handle,
+            latest_states,
         } = self;
 
         let tx_pool_config = tx_pool_config.unwrap_or_else(Default::default);
@@ -324,6 +331,7 @@ impl SharedBuilder {
             Arc::clone(&txs_verify_cache),
             &async_handle,
             sender.clone(),
+            latest_states.expect("Default setup should initialize latest states"),
         );
 
         register_tx_pool_callback(&mut tx_pool_builder, notify_controller.clone());

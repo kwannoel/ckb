@@ -15,6 +15,7 @@ pub fn import(args: ImportArgs, async_handle: Handle) -> Result<(), ExitCode> {
         &args.config.db,
         None,
         async_handle,
+        None, // FIXME
     )?;
     let (shared, mut pack) = builder.consensus(args.consensus).build()?;
 

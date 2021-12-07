@@ -25,6 +25,7 @@ impl Statics {
             &args.config.db,
             None,
             async_handle,
+            None, // FIXME
         )?;
         let (shared, _) = shared_builder.consensus(args.consensus).build()?;
 

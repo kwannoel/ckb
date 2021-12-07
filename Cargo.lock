@@ -1315,6 +1315,7 @@ version = "0.101.0"
 dependencies = [
  "ckb-app-config",
  "ckb-async-runtime",
+ "ckb-avoum",
  "ckb-chain-spec",
  "ckb-channel",
  "ckb-dao",
