@@ -739,7 +739,7 @@ pub(crate) struct TxPoolService {
     pub(crate) network: NetworkController,
     pub(crate) tx_relay_sender: ckb_channel::Sender<(Option<PeerIndex>, bool, Byte32)>,
     pub(crate) chunk: Arc<RwLock<ChunkQueue>>,
-    pub(crate) latest_states: Arc<AccountCellMap>,
+    pub(crate) latest_states: Arc<AccountRwLock<AccountCellMap>>,
 }
 
 #[allow(clippy::cognitive_complexity)]
