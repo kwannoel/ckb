@@ -1,13 +1,18 @@
 use std::collections::HashMap;
 
 use ckb_types::core::TransactionView;
-use ckb_types::packed::Byte32; // Should I just use a primitve array?
-use std::sync::{Arc, RwLock};
-use ckb_jsonrpc_types::Script;
+use ckb_types::packed::Script; // Should I just use a primitve array?
 
+#[derive(Eq, PartialEq, Hash)]
 pub struct AccountId {
     script: Script,
     id: Vec<u8>,
+}
+
+impl AccountId {
+     pub fn new(script: Script, id: Vec<u8>) -> Self {
+        Self { script, id, }
+    }
 }
 
 // This is a map between account cells and latest transactions.
@@ -20,5 +25,9 @@ impl AccountCellMap {
     pub fn new() -> Self {
         let inner = HashMap::<AccountId, TransactionView>::new();
         Self { inner }
+    }
+
+    pub fn contains_account(&self, account_id: &AccountId) -> bool {
+        self.inner.contains_key(account_id)
     }
 }

@@ -27,7 +27,7 @@ use ckb_verification::{BlockVerifier, InvalidParentError, NonContextualBlockTxsV
 use ckb_verification_contextual::{ContextualBlockVerifier, VerifyContext};
 use ckb_verification_traits::{Switch, Verifier};
 
-use ckb_avoum::AccountCellMap;
+use ckb_avoum::{AccountCellMap, AccountId};
 
 use faketime::unix_time_as_millis;
 use std::collections::{HashSet, VecDeque};
@@ -87,20 +87,26 @@ impl ChainController {
         match res {
             // Block has been committed, txs in the block are valid.
             Ok(true) => {
+                // Filter for valid account cells
                 let transactions = block.transactions();
                 for tx in transactions.iter() {
                     for input in tx.inputs() {
+                        // NOTE: An account cell is identified by the pair:
+                        // type_script, account_id (first 32 bytes of cell_data).
+                        // Hence we need to extract these parameters from the cell.
                         let previous_outpoint = input.previous_output();
                         let chain_store = self.shared.store();
                         let cell_meta = chain_store.get_cell(&previous_outpoint).expect("Cell should be present???");
 
-                        // NOTE: An account cell is identified by the pair:
-                        // type_script, account_id (first 32 bytes of cell_data).
-                        // Hence we need to extract these parameters from the cell.
-                        let cell_type_script = cell_meta.cell_output.type_();
+                        let cell_type_script_opt = cell_meta.cell_output.type_().to_opt();
+                        if let Some(type_script) = cell_type_script_opt {
+                            let cell_data = chain_store.get_cell_data(&previous_outpoint).expect("Cell data should be present??").0;
+                            let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
+                            let account_id = AccountId::new(type_script, partial_id);
 
-                        let cell_data = chain_store.get_cell_data(&previous_outpoint).expect("cell data should be present??").0;
-                        let account_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
+                            let latest_states = self.latest_states.read().expect("Reads shouldn't have issues");
+                            let hasKey = latest_states.contains_account(&account_id);
+                        }
                     }
                 }
                 // First extract transactions.
