@@ -94,6 +94,7 @@ pub(crate) type ChainReorgArgs = (
 pub(crate) enum Message {
     BlockTemplate(Request<BlockTemplateArgs, BlockTemplateResult>),
     SubmitLocalTx(Request<TransactionView, SubmitTxResult>),
+    SubmitMalleableLocalTx(Request<(TransactionView, u8, Vec<u8>), SubmitTxResult>),
     SubmitRemoteTx(Request<(TransactionView, Cycle, PeerIndex), ()>),
     NotifyTxs(Notify<Vec<TransactionView>>),
     FreshProposalsFilter(Request<Vec<ProposalShortId>, Vec<ProposalShortId>>),
@@ -123,7 +124,6 @@ pub struct TxPoolController {
     stop: StopHandler<()>,
     chunk_stop: StopHandler<Command>,
     started: Arc<AtomicBool>,
-    latest_states: Arc<AccountRwLock<AccountCellMap>>,
 }
 
 impl Drop for TxPoolController {
@@ -256,14 +256,10 @@ impl TxPoolController {
         tx: TransactionView,
         rebase_script: u8, // This is dummy, we only handle 1 rebase script for the auction scenario.
         account_indices: Vec<u8>) -> Result<SubmitTxResult, AnyError> {
-        // Check against account map
-
-
-        // Continue as per normal after rebasing.
         let (responder, response) = oneshot::channel();
-        let request = Request::call(tx, responder);
+        let request = Request::call((tx, rebase_script, account_indices), responder);
         self.sender
-            .try_send(Message::SubmitLocalTx(request))
+            .try_send(Message::SubmitMalleableLocalTx(request))
             .map_err(|e| {
                 let (_m, e) = handle_try_send_error(e);
                 e
@@ -552,6 +548,7 @@ pub struct TxPoolServiceBuilder {
     pub(crate) chunk_rx: ckb_channel::Receiver<Command>,
     pub(crate) chunk: Arc<RwLock<ChunkQueue>>,
     pub(crate) started: Arc<AtomicBool>,
+    pub(crate) latest_states: Arc<AccountRwLock<AccountCellMap>>,
 }
 
 impl TxPoolServiceBuilder {
@@ -590,7 +587,6 @@ impl TxPoolServiceBuilder {
             chunk_tx,
             stop,
             started: Arc::clone(&started),
-            latest_states,
         };
 
         let builder = TxPoolServiceBuilder {
@@ -608,6 +604,7 @@ impl TxPoolServiceBuilder {
             chunk_rx,
             chunk,
             started,
+            latest_states,
         };
 
         (builder, controller)
@@ -669,6 +666,7 @@ impl TxPoolServiceBuilder {
             network,
             consensus,
             last_txs_updated_at,
+            latest_states: self.latest_states,
         };
 
         let mut chunk_process = crate::chunk_process::TxChunkProcess::new(
@@ -741,6 +739,7 @@ pub(crate) struct TxPoolService {
     pub(crate) network: NetworkController,
     pub(crate) tx_relay_sender: ckb_channel::Sender<(Option<PeerIndex>, bool, Byte32)>,
     pub(crate) chunk: Arc<RwLock<ChunkQueue>>,
+    pub(crate) latest_states: Arc<AccountCellMap>,
 }
 
 #[allow(clippy::cognitive_complexity)]
@@ -778,6 +777,15 @@ async fn process(mut service: TxPoolService, message: Message) {
                 error!("responder send submit_tx result failed {:?}", e);
             };
         }
+        Message::SubmitMalleableLocalTx(Request {
+            responder,
+            arguments: (tx, rebase_script, account_cell_indices),
+        }) => {
+            let result = service.process_malleable_local_tx(tx, rebase_script, account_cell_indices).await;
+            if let Err(e) = responder.send(result.map_err(Into::into)) {
+                error!("responder send submit_malleable_local_tx result failed {:?}", e);
+            };
+        },
         Message::SubmitRemoteTx(Request {
             responder,
             arguments: (tx, declared_cycles, peer),

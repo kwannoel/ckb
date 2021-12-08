@@ -49,6 +49,8 @@ use std::time::Duration;
 use std::{cmp, iter};
 use tokio::task::block_in_place;
 
+use ckb_avoum::{AccountCellMap, AccountId};
+
 /// A list for plug target for `plug_entry` method
 pub enum PlugTarget {
     /// Pending pool
@@ -650,6 +652,54 @@ impl TxPoolService {
             }
         }
     }
+
+    // NOTE: None here is failure state where we cannot find the account cells as specified by indices.
+    // TODO: Resolve dependency issues and move this into avoum library
+    fn extract_accounts(
+        chain_store: &Snapshot,
+        transaction: &TransactionView,
+        cell_indices: Vec<u8>
+    ) -> Option<Vec<AccountId>> {
+        let inputs = transaction.inputs();
+        let mut res = vec![];
+        for idx in cell_indices.iter() {
+            let input = inputs.get(usize::from(*idx));
+            match input {
+                None => { return None },
+                Some(input) => {
+                    let previous_outpoint = input.previous_output();
+                    let cell_meta = chain_store.get_cell(&previous_outpoint).expect("Cell should be present???");
+                    let cell_type_script_opt = cell_meta.cell_output.type_().to_opt();
+                    match cell_type_script_opt {
+                        Some(type_script) => {
+                            let cell_data = chain_store.get_cell_data(&previous_outpoint).expect("Cell data should be present??").0;
+                            let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
+                            let account_id = AccountId::new(type_script, partial_id);
+                            res.push(account_id);
+                        },
+                        None => { return None },
+                    }
+                },
+            }
+        }
+
+        Some(res)
+    }
+
+    pub(crate) async fn process_malleable_local_tx(
+        &self,
+        tx: TransactionView,
+        rebase_script: u8,
+        account_indices: Vec<u8>,
+    ) -> Result<Completed, Reject> {
+        let tx_pool = self.tx_pool.read().await;
+        let snapshot = tx_pool.snapshot();
+        let account_cells = Self::extract_accounts(snapshot, &tx, account_indices);
+        let latest_states = &self.latest_states.read();
+        self.process_tx(tx, None).await
+    }
+
+
 
     pub(crate) async fn process_tx(
         &self,

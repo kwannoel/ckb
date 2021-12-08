@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use ckb_types::core::TransactionView;
-use ckb_types::packed::Script; // Should I just use a primitve array?
+use ckb_types::packed::{CellInput, Script}; // Should I just use a primitve array?
+use ckb_store::{ChainDB, ChainStore};
 
 #[derive(Eq, PartialEq, Hash)]
 pub struct AccountId {
@@ -35,3 +36,19 @@ impl AccountCellMap {
         self.inner.insert(account_id, tx)
     }
 }
+
+// NOTE: None here is failure state where we cannot find the account cells as specified by indices.
+pub fn extract_account_cells(transaction: &TransactionView, cell_indices: Vec<u8>) -> Option<Vec<CellInput>> {
+    let inputs = transaction.inputs();
+    let mut res = vec![];
+    for idx in cell_indices.iter() {
+        let input = inputs.get(usize::from(*idx));
+        match input {
+            None => { return None },
+            Some(input) => { res.push(input) },
+        }
+    }
+
+    Some(res)
+}
+

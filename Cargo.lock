@@ -445,6 +445,7 @@ name = "ckb-avoum"
 version = "0.1.0"
 dependencies = [
  "ckb-jsonrpc-types",
+ "ckb-store",
  "ckb-types",
 ]
 
@@ -552,6 +553,7 @@ dependencies = [
  "faux",
  "lazy_static",
  "tempfile",
+ "tokio",
 ]
 
 [[package]]
