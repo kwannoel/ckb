@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 ckb-types = { path = "../util/types", version = "= 0.101.0" }
+ckb-jsonrpc-types = { path = "../util/jsonrpc-types", version = "= 0.101.0" }

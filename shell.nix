@@ -25,5 +25,11 @@ mkShell {
      alias capsule=$HOME/.cargo/bin/capsule
      alias ckb-cli=$HOME/projects/ckb-cli/target/release/ckb-cli
      alias ckb=$HOME/projects/ckb/target/release/ckb
+     function cdp {
+       cd ~/projects/ckb
+     }
+     function cck {
+       cargo check
+     }
   '';
 }

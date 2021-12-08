@@ -49,6 +49,7 @@ pub struct ChainController {
     truncate_sender: Sender<TruncateRequest>, // Used for testing only
     stop: Option<StopHandler<()>>,
     latest_states: Arc<RwLock<AccountCellMap>>,
+    shared: Shared, // Hack to allow process_block to lookup cell inputs from store.
 }
 
 impl Drop for ChainController {
@@ -64,12 +65,14 @@ impl ChainController {
         truncate_sender: Sender<TruncateRequest>,
         stop: StopHandler<()>,
         latest_states: Arc<RwLock<AccountCellMap>>,
+        shared: Shared, // Hack to allow process_block to lookup cell inputs from store.
     ) -> Self {
         ChainController {
             process_block_sender,
             truncate_sender,
             stop: Some(stop),
             latest_states,
+            shared,
         }
     }
     /// Inserts the block into database.
@@ -80,24 +83,49 @@ impl ChainController {
     ///
     /// [BlockVerifier] [NonContextualBlockTxsVerifier] [ContextualBlockVerifier] will performed
     pub fn process_block(&self, block: Arc<BlockView>) -> Result<bool, Error> {
-        let res = self.internal_process_block(block, Switch::NONE);
+        let res = self.internal_process_block(block.clone(), Switch::NONE);
         match res {
             // Block has been committed, txs in the block are valid.
             Ok(true) => {
+                let transactions = block.transactions();
+                for tx in transactions.iter() {
+                    for input in tx.inputs() {
+                        let previous_outpoint = input.previous_output();
+                        let chain_store = self.shared.store();
+                        let cell_meta = chain_store.get_cell(&previous_outpoint).expect("Cell should be present???");
+
+                        // NOTE: An account cell is identified by the pair:
+                        // type_script, account_id (first 32 bytes of cell_data).
+                        // Hence we need to extract these parameters from the cell.
+                        let cell_type_script = cell_meta.cell_output.type_();
+
+                        let cell_data = chain_store.get_cell_data(&previous_outpoint).expect("cell data should be present??").0;
+                        let account_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
+                    }
+                }
                 // First extract transactions.
+                // 1. Extract txs.
                 // Next filter through the input cells.
                 // TODO:
                 // How should we filter through the cells???
                 // My proposal:
-                // 1. Grab the data from all the output cells,
+                // 1. Grab the data from all the input cells,
                 //    since the account id could be stored in anyone of them.
                 //    and we only want live_cells
                 // 2. Deserialize the data in the same way we do it in avoum-auction,
                 //    if it fails it is not account cell.
-                //    Or should we change avoum-auction to specify the account id as the first 20 bytes????
+                //    Or should we change avoum-auction to specify the account id as the first 32bytes????
+                //    Yes let's do it.
                 // 3. Check if it matches account ids we already have,
                 //    if yes -> we want to include the tx.
                 //    if no -> don't include the tx.
+                // We need to know what cells in the emitted tx are account cells.
+                // Once indices indicate a specific cell is an account cell,
+                // we know it is, because a type script should be the one to ensure uniqueness.
+                // The typescript will highlight that its wrong.
+                // product / pair of typescript and account id is needed as keys to account map,
+                // NOTE: account id is NOT enough.
+                // TODO: Need to make sure the rebased txs are not rebased against themselves.
             }
             _ => {}
         }
@@ -144,6 +172,7 @@ impl ChainController {
             truncate_sender: self.truncate_sender.clone(),
             process_block_sender: self.process_block_sender.clone(),
             latest_states: self.latest_states.clone(),
+            shared: self.shared.clone(),
         }
     }
 }
@@ -251,7 +280,8 @@ impl ChainService {
         if let Some(name) = thread_name {
             thread_builder = thread_builder.name(name.to_string());
         }
-        let tx_control = self.shared.tx_pool_controller().clone();
+        let tx_control = self.shared.clone().tx_pool_controller().clone();
+        let shared = self.shared.clone();
 
         let thread = thread_builder
             .spawn(move || loop {
@@ -290,7 +320,7 @@ impl ChainService {
             "chain".to_string(),
         );
 
-        ChainController::new(process_block_sender, truncate_sender, stop, latest_states)
+        ChainController::new(process_block_sender, truncate_sender, stop, latest_states, shared)
     }
 
     fn make_fork_for_truncate(&self, target: &HeaderView, current_tip: &HeaderView) -> ForkChanges {
