@@ -30,4 +30,8 @@ impl AccountCellMap {
     pub fn contains_account(&self, account_id: &AccountId) -> bool {
         self.inner.contains_key(account_id)
     }
+
+    pub fn update_account(&mut self, account_id: AccountId, tx: TransactionView) -> Option<TransactionView> {
+        self.inner.insert(account_id, tx)
+    }
 }

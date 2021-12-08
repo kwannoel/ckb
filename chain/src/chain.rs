@@ -104,8 +104,14 @@ impl ChainController {
                             let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
                             let account_id = AccountId::new(type_script, partial_id);
 
-                            let latest_states = self.latest_states.read().expect("Reads shouldn't have issues");
-                            let hasKey = latest_states.contains_account(&account_id);
+                            let latest_states = self.latest_states.read().expect("Acquiring read lock shouldn't have issues");
+                            if latest_states.contains_account(&account_id) {
+                                // NOTE: Assume we use an account cell once / block for simplicity.
+                                // TODO: Stack txs with the same account cell rebased.
+                                let mut latest_states = self.latest_states.write().expect("Acquiring write lock shouldn't have issues");
+                                // NOTE: Assume this is latest tx
+                                latest_states.update_account(account_id, tx.clone());
+                            }
                         }
                     }
                 }
