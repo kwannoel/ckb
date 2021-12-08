@@ -695,7 +695,13 @@ impl TxPoolService {
     ) -> Result<Completed, Reject> {
         let tx_pool = self.tx_pool.read().await;
         let snapshot = tx_pool.snapshot();
-        let account_cells = Self::extract_accounts(snapshot, &tx, account_indices);
+        let account_ids = Self::extract_accounts(snapshot, &tx, account_indices);
+        // Look up latest txs (if any)
+        if let Some(account_ids) = account_ids {
+            for account_id in account_ids.iter() {
+                latest_states.get(&account_id);
+            }
+        }
         self.process_tx(tx, None).await
     }
 

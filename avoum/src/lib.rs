@@ -36,6 +36,10 @@ impl AccountCellMap {
     pub fn update_account(&mut self, account_id: AccountId, tx: TransactionView) -> Option<TransactionView> {
         self.inner.insert(account_id, tx)
     }
+
+    pub fn get(&self, account_id: &AccountId) -> Option<&TransactionView> {
+        self.inner.get(account_id)
+    }
 }
 
 // NOTE: None here is failure state where we cannot find the account cells as specified by indices.
