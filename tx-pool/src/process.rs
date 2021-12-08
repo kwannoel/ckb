@@ -691,11 +691,11 @@ impl TxPoolService {
         tx: TransactionView,
         rebase_script: u8,
         account_indices: Vec<u8>,
+        latest_states: AccountCellMap,
     ) -> Result<Completed, Reject> {
         let tx_pool = self.tx_pool.read().await;
         let snapshot = tx_pool.snapshot();
         let account_cells = Self::extract_accounts(snapshot, &tx, account_indices);
-        let latest_states = &self.latest_states.read();
         self.process_tx(tx, None).await
     }
 

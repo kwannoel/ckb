@@ -4,7 +4,7 @@ use ckb_types::core::TransactionView;
 use ckb_types::packed::{CellInput, Script}; // Should I just use a primitve array?
 use ckb_store::{ChainDB, ChainStore};
 
-#[derive(Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct AccountId {
     script: Script,
     id: Vec<u8>,
@@ -18,6 +18,7 @@ impl AccountId {
 
 // This is a map between account cells and latest transactions.
 // It uses the product of the account cell and script to identify txs.
+#[derive(Clone)]
 pub struct AccountCellMap {
     inner: HashMap<AccountId, TransactionView>,
 }
