@@ -78,6 +78,8 @@ You can find a more comprehensive document website at [https://docs.nervos.org](
 
 See `shell.nix`.
 
+Installing binaries for development:
+
 ``` sh
 cargo install --path . -f --locked
 ```

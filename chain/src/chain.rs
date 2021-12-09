@@ -96,21 +96,22 @@ impl ChainController {
                         // Hence we need to extract these parameters from the cell.
                         let previous_outpoint = input.previous_output();
                         let chain_store = self.shared.store();
-                        let cell_meta = chain_store.get_cell(&previous_outpoint).expect("Cell should be present???");
+                        if let Some(cell_meta) = chain_store.get_cell(&previous_outpoint) {
+                            if let Some(type_script) = cell_meta.cell_output.type_().to_opt() {
+                                if let Some(cell_data) = chain_store.get_cell_data(&previous_outpoint) {
+                                    let cell_data = cell_data.0;
+                                    let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
+                                    let account_id = AccountId::new(type_script, partial_id);
 
-                        let cell_type_script_opt = cell_meta.cell_output.type_().to_opt();
-                        if let Some(type_script) = cell_type_script_opt {
-                            let cell_data = chain_store.get_cell_data(&previous_outpoint).expect("Cell data should be present??").0;
-                            let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
-                            let account_id = AccountId::new(type_script, partial_id);
-
-                            let latest_states = self.latest_states.read().expect("Acquiring read lock shouldn't have issues");
-                            if latest_states.contains_account(&account_id) {
-                                // NOTE: Assume we use an account cell once / block for simplicity.
-                                // TODO: Stack txs with the same account cell rebased.
-                                let mut latest_states = self.latest_states.write().expect("Acquiring write lock shouldn't have issues");
-                                // NOTE: Assume this is latest tx
-                                latest_states.update_account(account_id, tx.clone());
+                                    let latest_states = self.latest_states.read().expect("Acquiring read lock shouldn't have issues");
+                                    if latest_states.contains_account(&account_id) {
+                                        // NOTE: Assume we use an account cell once / block for simplicity.
+                                        // TODO: Stack txs with the same account cell rebased.
+                                        let mut latest_states = self.latest_states.write().expect("Acquiring write lock shouldn't have issues");
+                                        // NOTE: Assume this is latest tx
+                                        latest_states.update_account(account_id, tx.clone());
+                                    }
+                                }
                             }
                         }
                     }

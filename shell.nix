@@ -31,5 +31,9 @@ mkShell {
      function cck {
        cargo check
      }
+     function mkbin {
+       cargo install --path . -f --locked
+       cp ~/.cargo/bin/ckb ~/.local/bin/ckb
+     }
   '';
 }
