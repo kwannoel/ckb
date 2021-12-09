@@ -251,6 +251,7 @@ impl TxPoolController {
                 let (_m, e) = handle_try_send_error(e);
                 e
             })?;
+        debug!("Submitted local tx, waiting for response from service...");
         block_in_place(|| response.recv())
             .map_err(handle_recv_error)
             .map_err(Into::into)
@@ -271,12 +272,14 @@ impl TxPoolController {
             .try_send(Message::SubmitMalleableLocalTx(request))
             .map_err(|e| {
                 let (_m, e) = handle_try_send_error(e);
+                error!("error: {:?}", e);
                 e
             })?;
+        debug!("Submitted local malleable tx, waiting for response from service...");
         let res = block_in_place(|| response.recv())
             .map_err(handle_recv_error)
             .map_err(Into::into);
-        debug!("Submitted local malleable tx");
+        debug!("Submitted local malleable tx, received response from service...");
         res
     }
 
@@ -792,11 +795,9 @@ async fn process(mut service: TxPoolService, message: Message) {
             debug!("Handling malleable tx");
             let result = service.process_malleable_local_tx(tx, rebase_script, account_cell_indices, account_cell_map).await;
             if let Err(e) = responder.send(result.map_err(Into::into)) {
-                // FIXME: Remove this if error log a-ok.
-                debug!("responder send submit_malleable_local_tx result failed {:?}", e);
                 error!("responder send submit_malleable_local_tx result failed {:?}", e);
             };
-        },
+        }
         Message::SubmitRemoteTx(Request {
             responder,
             arguments: (tx, declared_cycles, peer),

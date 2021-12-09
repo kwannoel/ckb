@@ -4,7 +4,7 @@ use ckb_types::core::TransactionView;
 use ckb_types::packed::{CellInput, Script}; // Should I just use a primitve array?
 use ckb_store::{ChainDB, ChainStore};
 
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct AccountId {
     script: Script,
     id: Vec<u8>,

@@ -670,6 +670,7 @@ impl TxPoolService {
                         if let Some(cell_data) = chain_store.get_cell_data(&previous_outpoint) {
                             let cell_data = cell_data.0;
                             if cell_data.len() >= 32 {
+                                debug!("Found an account cell");
                                 let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
                                 let account_id = AccountId::new(type_script, partial_id);
                                 res.push(account_id);
@@ -696,20 +697,25 @@ impl TxPoolService {
     ) -> Result<Completed, Reject> {
         debug!("Processing malleable tx");
         let tx_pool = self.tx_pool.read().await;
-        let snapshot = tx_pool.snapshot();
+        let snapshot = tx_pool.cloned_snapshot();
         debug!("Extracting accounts");
-        let account_ids = Self::extract_accounts(snapshot, &tx, account_indices);
+        let account_ids = Self::extract_accounts(&snapshot, &tx, account_indices);
         debug!("Extracted accounts");
-        debug!("Extracting latest states");
         // Look up latest txs (if any)
         if let Some(account_ids) = account_ids {
             for account_id in account_ids.iter() {
+                debug!("Extracting latest states for account: {:?}", account_id);
                 latest_states.get(&account_id);
+                debug!("Extracted latest states for account: {:?}", account_id);
             }
         }
-        debug!("Extracted latest states");
-
         // TODO: Rebase and continue processing tx
+        debug!("Done rebasing, processing tx");
+
+        // FIXME: We should just scope our read...
+        // This frees the read lock to avoid a deadlock,
+        // since later there's a write to the txpool,
+        drop(tx_pool);
         self.process_tx(tx, None).await
     }
 
@@ -720,6 +726,7 @@ impl TxPoolService {
         tx: TransactionView,
         remote: Option<(Cycle, PeerIndex)>,
     ) -> Result<Completed, Reject> {
+        debug!("Processing tx");
         // non contextual verify first
         self.non_contextual_verify(&tx, remote)?;
 

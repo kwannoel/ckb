@@ -83,6 +83,7 @@ impl ChainController {
     ///
     /// [BlockVerifier] [NonContextualBlockTxsVerifier] [ContextualBlockVerifier] will performed
     pub fn process_block(&self, block: Arc<BlockView>) -> Result<bool, Error> {
+        debug!("Processing block...");
         let res = self.internal_process_block(block.clone(), Switch::NONE);
         match res {
             // Block has been committed, txs in the block are valid.
@@ -90,7 +91,9 @@ impl ChainController {
                 // Filter for valid account cells
                 let transactions = block.transactions();
                 for tx in transactions.iter() {
+                    debug!("Looping through transactions, looking for account cells");
                     for input in tx.inputs() {
+                        debug!("Looping through inputs, looking for account cells");
                         // NOTE: An account cell is identified by the pair:
                         // type_script, account_id (first 32 bytes of cell_data).
                         // Hence we need to extract these parameters from the cell.
@@ -105,6 +108,7 @@ impl ChainController {
 
                                     let latest_states = self.latest_states.read().expect("Acquiring read lock shouldn't have issues");
                                     if latest_states.contains_account(&account_id) {
+                                        debug!("Found account cell input");
                                         // NOTE: Assume we use an account cell once / block for simplicity.
                                         // TODO: Stack txs with the same account cell rebased.
                                         let mut latest_states = self.latest_states.write().expect("Acquiring write lock shouldn't have issues");
@@ -139,6 +143,7 @@ impl ChainController {
                 // product / pair of typescript and account id is needed as keys to account map,
                 // NOTE: account id is NOT enough.
                 // TODO: Need to make sure the rebased txs are not rebased against themselves.
+                debug!("Done looking through accounts");
             }
             _ => {}
         }

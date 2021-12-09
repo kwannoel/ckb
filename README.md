@@ -83,3 +83,7 @@ Installing binaries for development:
 ``` sh
 cargo install --path . -f --locked
 ```
+
+## Troubleshooting
+
+If node crashes / freezes on txpool, purge `data/tx-pool`.
