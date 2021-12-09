@@ -15,6 +15,7 @@ use ckb_error::{AnyError, Error};
 use ckb_jsonrpc_types::{BlockTemplate, TransactionWithStatus, TxStatus};
 use ckb_logger::error;
 use ckb_logger::info;
+use ckb_logger::debug;
 use ckb_network::{NetworkController, PeerIndex};
 use ckb_snapshot::Snapshot;
 use ckb_stop_handler::{SignalSender, StopHandler, WATCH_INIT};
@@ -261,6 +262,7 @@ impl TxPoolController {
         tx: TransactionView,
         rebase_script: u8, // This is dummy, we only handle 1 rebase script for the auction scenario.
         account_indices: Vec<u8>) -> Result<SubmitTxResult, AnyError> {
+        debug!("Submitting local malleable tx");
         let (responder, response) = oneshot::channel();
         let latest_states = self.latest_states.read().expect("TODO: failed");
         let latest_states: AccountCellMap = latest_states.clone();
@@ -271,9 +273,11 @@ impl TxPoolController {
                 let (_m, e) = handle_try_send_error(e);
                 e
             })?;
-        block_in_place(|| response.recv())
+        let res = block_in_place(|| response.recv())
             .map_err(handle_recv_error)
-            .map_err(Into::into)
+            .map_err(Into::into);
+        debug!("Submitted local malleable tx");
+        res
     }
 
     /// Submit remote tx with declared cycles and origin to tx-pool
@@ -785,8 +789,11 @@ async fn process(mut service: TxPoolService, message: Message) {
             responder,
             arguments: (tx, rebase_script, account_cell_indices, account_cell_map),
         }) => {
+            debug!("Handling malleable tx");
             let result = service.process_malleable_local_tx(tx, rebase_script, account_cell_indices, account_cell_map).await;
             if let Err(e) = responder.send(result.map_err(Into::into)) {
+                // FIXME: Remove this if error log a-ok.
+                debug!("responder send submit_malleable_local_tx result failed {:?}", e);
                 error!("responder send submit_malleable_local_tx result failed {:?}", e);
             };
         },

@@ -663,24 +663,25 @@ impl TxPoolService {
         let inputs = transaction.inputs();
         let mut res = vec![];
         for idx in cell_indices.iter() {
-            let input = inputs.get(usize::from(*idx));
-            match input {
-                None => { return None },
-                Some(input) => {
-                    let previous_outpoint = input.previous_output();
-                    let cell_meta = chain_store.get_cell(&previous_outpoint).expect("Cell should be present???");
-                    let cell_type_script_opt = cell_meta.cell_output.type_().to_opt();
-                    match cell_type_script_opt {
-                        Some(type_script) => {
-                            let cell_data = chain_store.get_cell_data(&previous_outpoint).expect("Cell data should be present??").0;
-                            let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
-                            let account_id = AccountId::new(type_script, partial_id);
-                            res.push(account_id);
-                        },
-                        None => { return None },
+            if let Some(input) = inputs.get(usize::from(*idx)) {
+                let previous_outpoint = input.previous_output();
+                if let Some(cell_meta) = chain_store.get_cell(&previous_outpoint) {
+                    if let Some(type_script) = cell_meta.cell_output.type_().to_opt() {
+                        if let Some(cell_data) = chain_store.get_cell_data(&previous_outpoint) {
+                            let cell_data = cell_data.0;
+                            if cell_data.len() >= 32 {
+                                let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
+                                let account_id = AccountId::new(type_script, partial_id);
+                                res.push(account_id);
+                            }
+                        }
+
                     }
-                },
+                }
+                continue;
             }
+
+            return None;
         }
 
         Some(res)
@@ -693,15 +694,22 @@ impl TxPoolService {
         account_indices: Vec<u8>,
         latest_states: AccountCellMap,
     ) -> Result<Completed, Reject> {
+        debug!("Processing malleable tx");
         let tx_pool = self.tx_pool.read().await;
         let snapshot = tx_pool.snapshot();
+        debug!("Extracting accounts");
         let account_ids = Self::extract_accounts(snapshot, &tx, account_indices);
+        debug!("Extracted accounts");
+        debug!("Extracting latest states");
         // Look up latest txs (if any)
         if let Some(account_ids) = account_ids {
             for account_id in account_ids.iter() {
                 latest_states.get(&account_id);
             }
         }
+        debug!("Extracted latest states");
+
+        // TODO: Rebase and continue processing tx
         self.process_tx(tx, None).await
     }
 
