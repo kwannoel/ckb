@@ -664,13 +664,17 @@ impl TxPoolService {
         let mut res = vec![];
         for idx in cell_indices.iter() {
             if let Some(input) = inputs.get(usize::from(*idx)) {
+                debug!("1. Found cell as specified");
                 let previous_outpoint = input.previous_output();
                 if let Some(cell_meta) = chain_store.get_cell(&previous_outpoint) {
+                    debug!("2. Found cell metadata");
                     if let Some(type_script) = cell_meta.cell_output.type_().to_opt() {
+                        debug!("3. Found type script");
                         if let Some(cell_data) = chain_store.get_cell_data(&previous_outpoint) {
+                            debug!("4. Found cell data");
                             let cell_data = cell_data.0;
                             if cell_data.len() >= 32 {
-                                debug!("Found an account cell");
+                                debug!("5. Constructing valid account id");
                                 let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
                                 let account_id = AccountId::new(type_script, partial_id);
                                 res.push(account_id);

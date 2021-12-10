@@ -26,6 +26,8 @@ use ckb_types::{
 use ckb_verification::{BlockVerifier, InvalidParentError, NonContextualBlockTxsVerifier};
 use ckb_verification_contextual::{ContextualBlockVerifier, VerifyContext};
 use ckb_verification_traits::{Switch, Verifier};
+use molecule::unpack_number;
+use ckb_types::packed;
 
 use ckb_avoum::{AccountCellMap, AccountId};
 
@@ -75,6 +77,11 @@ impl ChainController {
             shared,
         }
     }
+    fn uint32_to_usize(index: packed::Uint32) -> usize {
+        let bytes = index.raw_data();
+        let bytes: &[u8] = &bytes[0..4];
+        unpack_number(&bytes) as usize
+    }
     /// Inserts the block into database.
     ///
     /// Expects the block's header to be valid and already verified.
@@ -91,29 +98,44 @@ impl ChainController {
                 // Filter for valid account cells
                 let transactions = block.transactions();
                 for tx in transactions.iter() {
-                    debug!("Looping through transactions, looking for account cells");
+                    debug!("1. Looping through transactions, looking for account cells");
                     for input in tx.inputs() {
-                        debug!("Looping through inputs, looking for account cells");
+                        debug!("2. Looping through inputs, looking for account cells");
                         // NOTE: An account cell is identified by the pair:
                         // type_script, account_id (first 32 bytes of cell_data).
                         // Hence we need to extract these parameters from the cell.
                         let previous_outpoint = input.previous_output();
+                        let tx_hash = previous_outpoint.tx_hash();
+                        let index = previous_outpoint.index();
+                        let index = Self::uint32_to_usize(index);
                         let chain_store = self.shared.store();
-                        if let Some(cell_meta) = chain_store.get_cell(&previous_outpoint) {
-                            if let Some(type_script) = cell_meta.cell_output.type_().to_opt() {
-                                if let Some(cell_data) = chain_store.get_cell_data(&previous_outpoint) {
-                                    let cell_data = cell_data.0;
-                                    let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
-                                    let account_id = AccountId::new(type_script, partial_id);
+                        // NOTE: This is needed because the chain_store.get_cell store column only
+                        // persists live cells.
+                        if let Some((tx_info, _block_hash)) = chain_store.get_transaction(&tx_hash) {
+                            let outputs = tx_info.data().raw().outputs();
+                            let outputs_data = tx_info.data().raw().outputs_data();
+                            let output = outputs.get(index).expect("Unexpected error: cant find output cell for valid inputs");
+                            debug!("3. Found cell");
+                            if let Some(type_script) = output.type_().to_opt() {
+                                debug!("4. Found cell type script");
+                                if let Some(cell_data) = outputs_data.get(index) {
+                                    debug!("5. Found cell data, making account id");
+                                    if cell_data.len() >= 32 {
+                                        let cell_data = cell_data.raw_data();
+                                        debug!("6. Valid account cell");
+                                        let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
+                                        let account_id = AccountId::new(type_script, partial_id);
 
-                                    let latest_states = self.latest_states.read().expect("Acquiring read lock shouldn't have issues");
-                                    if latest_states.contains_account(&account_id) {
-                                        debug!("Found account cell input");
-                                        // NOTE: Assume we use an account cell once / block for simplicity.
-                                        // TODO: Stack txs with the same account cell rebased.
-                                        let mut latest_states = self.latest_states.write().expect("Acquiring write lock shouldn't have issues");
-                                        // NOTE: Assume this is latest tx
-                                        latest_states.update_account(account_id, tx.clone());
+                                        let latest_states = self.latest_states.read().expect("Acquiring read lock shouldn't have issues");
+                                        if latest_states.contains_account(&account_id) {
+                                            debug!("7. Account is being watched, we should update the map to include it");
+                                            // NOTE: Assume we use an account cell once / block for simplicity.
+                                            // TODO: Stack txs with the same account cell rebased.
+                                            let mut latest_states = self.latest_states.write().expect("Acquiring write lock shouldn't have issues");
+                                            // NOTE: Assume this is latest tx
+                                            latest_states.update_account(account_id, tx.clone());
+                                            debug!("8. Successfully updated account");
+                                        }
                                     }
                                 }
                             }
