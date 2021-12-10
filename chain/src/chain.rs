@@ -124,6 +124,7 @@ impl ChainController {
                                         let cell_data = cell_data.raw_data();
                                         debug!("6. Valid account cell");
                                         let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
+                                        debug!("account_partial_identifier is: {:#?}", partial_id);
                                         let account_id = AccountId::new(type_script, partial_id);
 
                                         let latest_states = self.latest_states.read().expect("Acquiring read lock shouldn't have issues");

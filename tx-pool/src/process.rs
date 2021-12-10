@@ -676,6 +676,7 @@ impl TxPoolService {
                             if cell_data.len() >= 32 {
                                 debug!("5. Constructing valid account id");
                                 let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
+                                debug!("account_partial_identifier is: {:#?}", partial_id);
                                 let account_id = AccountId::new(type_script, partial_id);
                                 res.push(account_id);
                             }
