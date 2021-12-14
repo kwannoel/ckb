@@ -124,6 +124,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "auction-utils"
+version = "0.1.0"
+dependencies = [
+ "ckb-sodium",
+ "ckb-standalone-types",
+ "ckb-types",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -444,9 +456,11 @@ dependencies = [
 name = "ckb-avoum"
 version = "0.1.0"
 dependencies = [
+ "auction-utils",
  "ckb-jsonrpc-types",
  "ckb-store",
  "ckb-types",
+ "rebase-auction",
 ]
 
 [[package]]
@@ -526,6 +540,7 @@ version = "0.101.0"
 name = "ckb-chain"
 version = "0.101.0"
 dependencies = [
+ "auction-utils",
  "ckb-app-config",
  "ckb-avoum",
  "ckb-chain-spec",
@@ -552,7 +567,8 @@ dependencies = [
  "faketime",
  "faux",
  "lazy_static",
- "molecule",
+ "molecule 0.7.2",
+ "rebase-auction",
  "tempfile",
  "tokio",
 ]
@@ -1207,8 +1223,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ckb-sodium"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "serde",
+]
+
+[[package]]
 name = "ckb-spawn"
 version = "0.101.0"
+
+[[package]]
+name = "ckb-standalone-types"
+version = "0.0.1-pre.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af2cdbdf65ee5b1da71504f5a03d6984bce77d0b4b46daff63f4ba4a3b0eef08"
+dependencies = [
+ "cfg-if 0.1.10",
+ "molecule 0.6.1",
+]
 
 [[package]]
 name = "ckb-stop-handler"
@@ -1317,6 +1351,7 @@ dependencies = [
 name = "ckb-tx-pool"
 version = "0.101.0"
 dependencies = [
+ "auction-utils",
  "ckb-app-config",
  "ckb-async-runtime",
  "ckb-avoum",
@@ -1340,6 +1375,7 @@ dependencies = [
  "faketime",
  "lru",
  "rand 0.8.4",
+ "rebase-auction",
  "sentry",
  "serde_json",
  "tempfile",
@@ -1361,7 +1397,7 @@ dependencies = [
  "ckb-rational",
  "derive_more",
  "merkle-cbt",
- "molecule",
+ "molecule 0.7.2",
  "numext-fixed-uint",
  "once_cell",
  "proptest",
@@ -2897,6 +2933,15 @@ dependencies = [
 
 [[package]]
 name = "molecule"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3067ceba3d7f5dcc7427cfc584fc506e756f1161151032fec840455f5a3c2fd5"
+dependencies = [
+ "cfg-if 0.1.10",
+]
+
+[[package]]
+name = "molecule"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be5f63176422224eadd975789462a96cedaf339cd1009ef92fbdfaad39d35f5f"
@@ -3620,6 +3665,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rebase-auction"
+version = "0.1.0"
+dependencies = [
+ "auction-utils",
+ "blake2b-rs",
+ "ckb-standalone-types",
+ "ckb-types",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.1.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4046,9 +4101,9 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.9.6"
+version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9204c41a1597a8c5af23c82d1c921cb01ec0a4c59e07a9c7306062829a3903f3"
+checksum = "b69f9a4c9740d74c5baa3fd2e547f9525fa8088a8a958e0ca2409a514e33f5fa"
 dependencies = [
  "block-buffer 0.9.0",
  "cfg-if 1.0.0",
@@ -4206,7 +4261,7 @@ dependencies = [
  "js-sys",
  "libc",
  "log",
- "molecule",
+ "molecule 0.7.2",
  "nohash-hasher",
  "once_cell",
  "parking_lot",
@@ -4247,7 +4302,7 @@ dependencies = [
  "futures",
  "hmac",
  "log",
- "molecule",
+ "molecule 0.7.2",
  "openssl",
  "openssl-sys",
  "rand 0.7.3",

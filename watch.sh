@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-inotifywait avoum chain tx-pool --monitor --event modify --recursive --include .rs |
+inotifywait ../ckb-avoum-auction avoum chain tx-pool --monitor --event modify --recursive --include .rs |
 while read -r _folder event _file; do
     echo $_folder
     if [ $event = "MODIFY" ]

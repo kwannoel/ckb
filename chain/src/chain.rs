@@ -29,12 +29,18 @@ use ckb_verification_traits::{Switch, Verifier};
 use molecule::unpack_number;
 use ckb_types::packed;
 
-use ckb_avoum::{AccountCellMap, AccountId};
-
 use faketime::unix_time_as_millis;
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, RwLock};
 use std::{cmp, thread};
+use std::convert::TryInto;
+
+// AVOUM imports
+use ckb_avoum::AccountCellMap;
+use rebase_auction::AvoumKey;
+use auction_utils;
+use auction_utils::types::{AvoumId, AuctionState};
+use ckb_types::prelude::Unpack;
 
 type ProcessBlockRequest = Request<(Arc<BlockView>, Switch), Result<bool, Error>>;
 type TruncateRequest = Request<Byte32, Result<(), Error>>;
@@ -101,8 +107,6 @@ impl ChainController {
                     debug!("1. Looping through transactions, looking for account cells");
                     for input in tx.inputs() {
                         debug!("2. Looping through inputs, looking for account cells");
-                        // NOTE: An account cell is identified by the pair:
-                        // type_script, account_id (first 32 bytes of cell_data).
                         // Hence we need to extract these parameters from the cell.
                         let previous_outpoint = input.previous_output();
                         let tx_hash = previous_outpoint.tx_hash();
@@ -119,22 +123,22 @@ impl ChainController {
                             if let Some(type_script) = output.type_().to_opt() {
                                 debug!("4. Found cell type script");
                                 if let Some(cell_data) = outputs_data.get(index) {
+                                    let cell_data: Vec<u8> = cell_data.unpack();
                                     debug!("5. Found cell data, making account id");
-                                    if cell_data.len() >= 32 {
-                                        let cell_data = cell_data.raw_data();
+                                    // TODO: Generalize account id encoding.
+                                    if let Ok(auction_state) = auction_utils::decode_slice::<AuctionState>(&cell_data) {
+                                        let account_id: AvoumId = auction_state.avoum_id;
                                         debug!("6. Valid account cell");
-                                        let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
-                                        debug!("account_partial_identifier is: {:#?}", partial_id);
-                                        let account_id = AccountId::new(type_script, partial_id);
-
+                                        let account_key = AvoumKey::new_with_wrapped(account_id, type_script);
                                         let latest_states = self.latest_states.read().expect("Acquiring read lock shouldn't have issues");
-                                        if latest_states.contains_account(&account_id) {
+                                        if latest_states.contains_account(&account_key) {
                                             debug!("7. Account is being watched, we should update the map to include it");
                                             // NOTE: Assume we use an account cell once / block for simplicity.
                                             // TODO: Stack txs with the same account cell rebased.
                                             let mut latest_states = self.latest_states.write().expect("Acquiring write lock shouldn't have issues");
-                                            // NOTE: Assume this is latest tx
-                                            latest_states.update_account(account_id, tx.clone());
+                                            // NOTE: Assume this is latest tx, so we update accordingly.
+                                            let tx = tx.data();
+                                            latest_states.update_account(account_key, tx.clone());
                                             debug!("8. Successfully updated account");
                                         }
                                     }

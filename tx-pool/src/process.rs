@@ -49,7 +49,11 @@ use std::time::Duration;
 use std::{cmp, iter};
 use tokio::task::block_in_place;
 
-use ckb_avoum::{AccountCellMap, AccountId};
+use ckb_avoum::AccountCellMap;
+use rebase_auction::AvoumKey;
+use ckb_types::prelude::Unpack;
+use auction_utils::types::{AvoumId, AuctionState};
+use auction_utils;
 
 /// A list for plug target for `plug_entry` method
 pub enum PlugTarget {
@@ -659,7 +663,7 @@ impl TxPoolService {
         chain_store: &Snapshot,
         transaction: &TransactionView,
         cell_indices: Vec<u8>
-    ) -> Option<Vec<AccountId>> {
+    ) -> Option<Vec<AvoumKey>> {
         let inputs = transaction.inputs();
         let mut res = vec![];
         for idx in cell_indices.iter() {
@@ -673,12 +677,15 @@ impl TxPoolService {
                         if let Some(cell_data) = chain_store.get_cell_data(&previous_outpoint) {
                             debug!("4. Found cell data");
                             let cell_data = cell_data.0;
-                            if cell_data.len() >= 32 {
+                            let cell_data: Vec<u8> = cell_data.to_vec();
+                            if let Ok(auction_state) = auction_utils::decode_slice::<AuctionState>(&cell_data) {
                                 debug!("5. Constructing valid account id");
-                                let partial_id: Vec<u8> = Vec::from(&cell_data[0 .. 32]);
-                                debug!("account_partial_identifier is: {:#?}", partial_id);
-                                let account_id = AccountId::new(type_script, partial_id);
-                                res.push(account_id);
+                                let account_id: AvoumId = auction_state.avoum_id;
+                                debug!("account_id is: {:#?}", account_id);
+                                debug!("6. Constructing valid account key");
+                                let account_key = AvoumKey::new_with_wrapped(account_id, type_script);
+                                debug!("account_key is: {:#?}", account_key);
+                                res.push(account_key);
                             }
                         }
 
