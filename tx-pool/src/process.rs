@@ -49,11 +49,9 @@ use std::time::Duration;
 use std::{cmp, iter};
 use tokio::task::block_in_place;
 
-use ckb_avoum::AccountCellMap;
+use ckb_avoum::{AccountCellMap, make_account_key};
 use rebase_auction::AvoumKey;
 use ckb_types::prelude::Unpack;
-use auction_utils::types::{AvoumId, AuctionState};
-use auction_utils;
 
 /// A list for plug target for `plug_entry` method
 pub enum PlugTarget {
@@ -669,31 +667,14 @@ impl TxPoolService {
         for idx in cell_indices.iter() {
             if let Some(input) = inputs.get(usize::from(*idx)) {
                 debug!("1. Found cell as specified");
-                let previous_outpoint = input.previous_output();
-                if let Some(cell_meta) = chain_store.get_cell(&previous_outpoint) {
-                    debug!("2. Found cell metadata");
-                    if let Some(type_script) = cell_meta.cell_output.type_().to_opt() {
-                        debug!("3. Found type script");
-                        if let Some(cell_data) = chain_store.get_cell_data(&previous_outpoint) {
-                            debug!("4. Found cell data");
-                            let cell_data = cell_data.0;
-                            let cell_data: Vec<u8> = cell_data.to_vec();
-                            if let Ok(auction_state) = auction_utils::decode_slice::<AuctionState>(&cell_data) {
-                                debug!("5. Constructing valid account id");
-                                let account_id: AvoumId = auction_state.avoum_id;
-                                debug!("account_id is: {:#?}", account_id);
-                                debug!("6. Constructing valid account key");
-                                let account_key = AvoumKey::new_with_wrapped(account_id, type_script);
-                                debug!("account_key is: {:#?}", account_key);
-                                res.push(account_key);
-                            }
-                        }
-
+                let outpoint = input.previous_output();
+                if let Some((output, output_data)) = chain_store.get_outpoint_cell_meta(&outpoint) {
+                    if let Some(account_key) = make_account_key(&output, &output_data) {
+                        res.push(account_key);
+                        continue; // Success, continue process the other indices for account cells.
                     }
                 }
-                continue;
             }
-
             return None;
         }
 
@@ -710,6 +691,7 @@ impl TxPoolService {
         debug!("Processing malleable tx");
         let tx_pool = self.tx_pool.read().await;
         let snapshot = tx_pool.cloned_snapshot();
+        // Try to submit the tx first
         debug!("Extracting accounts");
         let account_ids = Self::extract_accounts(&snapshot, &tx, account_indices);
         debug!("Extracted accounts");
