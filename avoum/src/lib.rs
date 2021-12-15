@@ -33,14 +33,15 @@ impl AccountCellMap {
 }
 
 /// Decodes account cell with its parameters and data.
-pub fn decode_account_cell(output_data: Bytes) -> Option<AuctionState> {
+pub fn decode_account_cell(output_data: &Bytes) -> Option<AuctionState> {
     let cell_data: Vec<u8> = output_data.unpack();
     let auction_state = auction_utils::decode_slice::<AuctionState>(&cell_data).ok()?; // TODO: Propagate the error / log it.
     Some(auction_state)
 }
 
 /// Reconstructs account key
-pub fn make_account_key(cell_output: CellOutput, auction_state: AuctionState) -> Option<AvoumKey> {
+pub fn make_account_key(cell_output: &CellOutput, output_data: &Bytes) -> Option<AvoumKey> {
+    let auction_state = decode_account_cell(output_data)?;
     let type_script = cell_output.type_().to_opt()?;
     // TODO: Generalize account id encoding to first 32 bytes.
     let account_id = auction_state.avoum_id;
