@@ -98,18 +98,21 @@ impl ChainController {
                         debug!("2. Looping through inputs, looking for account cells");
                         let out_point = input.previous_output();
                         if let Some((output, output_data)) = &chain_store.get_outpoint_cell_meta(&out_point) {
+                            debug!("3. Fetched input cells");
                             if let Some(account_key) = make_account_key(&output, &output_data) {
-                                let latest_states = self.latest_states.read().expect("Acquiring read lock shouldn't have issues");
-                                if latest_states.contains_account(&account_key) {
-                                    debug!("7. Account is being watched, we should update the map to include it");
+                                debug!("4. Constructed account keys");
+                                // TODO: We should just grab accounts we are explicitly watching
+                                // let latest_states = self.latest_states.read().expect("Acquiring read lock shouldn't have issues");
+                                // if latest_states.contains_account(&account_key) {
+                                //     debug!("6. Account is being watched, we should update the map to include it");
                                     // NOTE: Assume we use an account cell once / block for simplicity.
                                     // TODO: Stack txs with the same account cell rebased.
-                                    let mut latest_states = self.latest_states.write().expect("Acquiring write lock shouldn't have issues");
-                                    // NOTE: Assume this is latest tx, so we update accordingly.
-                                    let tx = tx.data();
-                                    latest_states.update_account(account_key, tx.clone());
-                                    debug!("8. Successfully updated account");
-                                }
+                                let mut latest_states = self.latest_states.write().expect("Acquiring write lock shouldn't have issues");
+                                // NOTE: Assume this is latest tx, so we update accordingly.
+                                let tx = tx.data();
+                                latest_states.update_account(account_key, tx.clone());
+                                debug!("5. Successfully updated account");
+                                // }
                             }
                         }
                     }

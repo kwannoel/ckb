@@ -10,6 +10,7 @@ edition = "2018"
 ckb-jsonrpc-types = { path = "../util/jsonrpc-types", version = "= 0.101.0" }
 ckb-store = { path = "../store", version = "= 0.101.0" }
 ckb-types = { path = "../util/types", version = "= 0.101.0" }
+ckb-standalone-types = "0.0.1-pre.1"
 
 auction-utils = { path = "../../ckb-avoum-auction/auction-utils" }
 rebase-auction = { path = "../../ckb-avoum-auction/rebase-auction" }

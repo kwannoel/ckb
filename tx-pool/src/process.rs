@@ -26,6 +26,7 @@ use ckb_types::{
             get_related_dep_out_points, OverlayCellChecker, ResolveOptions, ResolvedTransaction,
             TransactionsChecker,
         },
+        error::OutPointError,
         hardfork::HardForkSwitch,
         BlockView, Capacity, Cycle, EpochExt, HeaderView, ScriptHashType, TransactionView,
         UncleBlockView, Version,
@@ -49,7 +50,7 @@ use std::time::Duration;
 use std::{cmp, iter};
 use tokio::task::block_in_place;
 
-use ckb_avoum::{AccountCellMap, make_account_key};
+use ckb_avoum::{AccountCellMap, make_account_key, rebase};
 use rebase_auction::AvoumKey;
 use ckb_types::prelude::Unpack;
 
@@ -688,29 +689,45 @@ impl TxPoolService {
         account_indices: Vec<u8>,
         latest_states: AccountCellMap,
     ) -> Result<Completed, Reject> {
-        debug!("Processing malleable tx");
-        let tx_pool = self.tx_pool.read().await;
-        let snapshot = tx_pool.cloned_snapshot();
-        // Try to submit the tx first
-        debug!("Extracting accounts");
-        let account_ids = Self::extract_accounts(&snapshot, &tx, account_indices);
-        debug!("Extracted accounts");
-        // Look up latest txs (if any)
-        if let Some(account_ids) = account_ids {
-            for account_id in account_ids.iter() {
-                debug!("Extracting latest states for account: {:?}", account_id);
-                latest_states.get(&account_id);
-                debug!("Extracted latest states for account: {:?}", account_id);
+        debug!("Processing malleable tx...");
+        let mut res = self.process_tx(tx.clone(), None).await;
+        debug!("result: {:#?}", res);
+        // TODO: What about OutPointError:Dead?
+        // This is matched against OutPointError::Unknown because its the error the RPC
+        // endpoint returns.
+        while let Err(Reject::Resolve(OutPointError::Unknown(_))) = res {
+            debug!("Failed, attempting to rebase...");
+            if let Ok(new_tx) = rebase(tx.data(), &latest_states) {
+                debug!("Rebasing succeeded!");
+                let new_tx = new_tx.into_view();
+                res = self.process_tx(new_tx, None).await;
+                continue; // continue attempting to rebase until it does not use dead cells.
             }
+            debug!("Rebasing failed... :(");
+            break; // If we fail to rebase, we abandon it permanently.
         }
-        // TODO: Rebase and continue processing tx
-        debug!("Done rebasing, processing tx");
+        res
+        // let tx_pool = self.tx_pool.read().await;
+        // let snapshot = tx_pool.cloned_snapshot();
+        // // Try to submit the tx first
+        // debug!("Extracting accounts");
+        // let account_ids = Self::extract_accounts(&snapshot, &tx, account_indices);
+        // debug!("Extracted accounts");
+        // // Look up latest txs (if any)
+        // if let Some(account_ids) = account_ids {
+        //     for account_id in account_ids.iter() {
+        //         debug!("Extracting latest states for account: {:?}", account_id);
+        //         latest_states.get(&account_id);
+        //         debug!("Extracted latest states for account: {:?}", account_id);
+        //     }
+        // }
+        // // TODO: Rebase and continue processing tx
+        // debug!("Done rebasing, processing tx");
 
         // FIXME: We should just scope our read...
         // This frees the read lock to avoid a deadlock,
         // since later there's a write to the txpool,
-        drop(tx_pool);
-        self.process_tx(tx, None).await
+        // drop(tx_pool);
     }
 
 
