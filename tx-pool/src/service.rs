@@ -40,7 +40,6 @@ use tokio::sync::{mpsc, RwLock};
 use tokio::task::block_in_place;
 
 use ckb_avoum::AccountCellMap;
-use std::ops::Deref;
 
 pub(crate) const DEFAULT_CHANNEL_SIZE: usize = 512;
 

@@ -26,14 +26,11 @@ use ckb_types::{
 use ckb_verification::{BlockVerifier, InvalidParentError, NonContextualBlockTxsVerifier};
 use ckb_verification_contextual::{ContextualBlockVerifier, VerifyContext};
 use ckb_verification_traits::{Switch, Verifier};
-use molecule::unpack_number;
-use ckb_types::packed;
 
 use faketime::unix_time_as_millis;
 use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, RwLock};
 use std::{cmp, thread};
-use std::convert::TryInto;
 
 // AVOUM imports
 use ckb_avoum::AccountCellMap;
