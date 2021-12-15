@@ -77,6 +77,7 @@ type BlockTemplateArgs = (
 );
 
 pub(crate) type SubmitTxResult = Result<Completed, Error>;
+pub(crate) type SubmitMalleableTxResult = Result<(Completed, TransactionView), Error>;
 
 type FetchTxRPCResult = Option<(bool, TransactionView)>;
 
@@ -97,7 +98,7 @@ pub(crate) enum Message {
     BlockTemplate(Request<BlockTemplateArgs, BlockTemplateResult>),
     SubmitLocalTx(Request<TransactionView, SubmitTxResult>),
     SubmitMalleableLocalTx(
-        Request<(TransactionView, u8, Vec<u8>, AccountCellMap), SubmitTxResult>
+        Request<(TransactionView, u8, Vec<u8>, AccountCellMap), SubmitMalleableTxResult>
     ),
     SubmitRemoteTx(Request<(TransactionView, Cycle, PeerIndex), ()>),
     NotifyTxs(Notify<Vec<TransactionView>>),
@@ -261,7 +262,7 @@ impl TxPoolController {
         &self,
         tx: TransactionView,
         rebase_script: u8, // This is dummy, we only handle 1 rebase script for the auction scenario.
-        account_indices: Vec<u8>) -> Result<SubmitTxResult, AnyError> {
+        account_indices: Vec<u8>) -> Result<SubmitMalleableTxResult, AnyError> {
         debug!("Submitting local malleable tx");
         let (responder, response) = oneshot::channel();
         let latest_states = self.latest_states.read().expect("TODO: failed");

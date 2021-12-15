@@ -688,8 +688,9 @@ impl TxPoolService {
         rebase_script: u8,
         account_indices: Vec<u8>,
         latest_states: AccountCellMap,
-    ) -> Result<Completed, Reject> {
+    ) -> Result<(Completed, TransactionView), Reject> {
         debug!("Processing malleable tx...");
+        let mut final_tx = tx.clone();
         let mut res = self.process_tx(tx.clone(), None).await;
         debug!("result: {:#?}", res);
         // TODO: What about OutPointError:Dead?
@@ -700,13 +701,14 @@ impl TxPoolService {
             if let Ok(new_tx) = rebase(tx.data(), &latest_states) {
                 debug!("Rebasing succeeded!");
                 let new_tx = new_tx.into_view();
+                final_tx = new_tx.clone();
                 res = self.process_tx(new_tx, None).await;
                 continue; // continue attempting to rebase until it does not use dead cells.
             }
             debug!("Rebasing failed... :(");
             break; // If we fail to rebase, we abandon it permanently.
         }
-        res
+        res.map(|completed| (completed, final_tx))
         // let tx_pool = self.tx_pool.read().await;
         // let snapshot = tx_pool.cloned_snapshot();
         // // Try to submit the tx first

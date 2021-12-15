@@ -417,10 +417,12 @@ impl PoolRpc for PoolRpcImpl {
         // If it is malleable -> See if we need to / can rebase
         // otherwise proceed as per normal.
         let tx_pool = self.shared.tx_pool_controller();
-        let submit_tx = match (rebase_script, account_indices) {
-            (Some(s), Some(idxs)) => tx_pool.submit_malleable_local_tx(tx.clone(), s, idxs),
-            _ => tx_pool.submit_local_tx(tx.clone()),
-        };
+        let submit_tx =
+            if let (Some(s), Some(idxs)) = (rebase_script, account_indices) {
+                 tx_pool.submit_malleable_local_tx(tx.clone(), s, idxs)
+            } else {
+                tx_pool.submit_local_tx(tx.clone()).map(|res| res.map(|c| (c, tx.clone())))
+            };
 
         // Check the result of submitting it to the tx pool.
         if let Err(e) = submit_tx {
@@ -428,10 +430,10 @@ impl PoolRpc for PoolRpcImpl {
             return Err(RPCError::ckb_internal_error(e));
         }
 
-        let tx_hash = tx.hash();
+        // let tx_hash = tx.hash();
         // Check the result of running the transaction
         match submit_tx.unwrap() {
-            Ok(_) => Ok(tx_hash.unpack()), // If success, just return the txhash.
+            Ok((_completed, final_tx)) => Ok(final_tx.hash().unpack()), // If success, just return the txhash.
             // Otherwise indicate the relevant error.
             Err(e) => match RPCError::downcast_submit_transaction_reject(&e) {
                 Some(reject) => Err(RPCError::from_submit_transaction_reject(reject)),
