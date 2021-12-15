@@ -83,11 +83,6 @@ impl ChainController {
             shared,
         }
     }
-    fn uint32_to_usize(index: packed::Uint32) -> usize {
-        let bytes = index.raw_data();
-        let bytes: &[u8] = &bytes[0..4];
-        unpack_number(&bytes) as usize
-    }
     /// Inserts the block into database.
     ///
     /// Expects the block's header to be valid and already verified.
@@ -103,44 +98,42 @@ impl ChainController {
             Ok(true) => {
                 // Filter for valid account cells
                 let transactions = block.transactions();
+                let chain_store = self.shared.store();
                 for tx in transactions.iter() {
                     debug!("1. Looping through transactions, looking for account cells");
                     for input in tx.inputs() {
                         debug!("2. Looping through inputs, looking for account cells");
-                        // Hence we need to extract these parameters from the cell.
-                        let previous_outpoint = input.previous_output();
-                        let tx_hash = previous_outpoint.tx_hash();
-                        let index = previous_outpoint.index();
-                        let index = Self::uint32_to_usize(index);
-                        let chain_store = self.shared.store();
+                        let out_point = input.previous_output();
+                        if let Some((output, output_data)) = &chain_store.get_outpoint_cell_meta(&out_point) {
+                        // let tx_hash = previous_outpoint.tx_hash();
+                        // let index = previous_outpoint.index();
+                        // let index = Self::uint32_to_usize(index);
                         // NOTE: This is needed because the chain_store.get_cell store column only
                         // persists live cells.
-                        if let Some((tx_info, _block_hash)) = chain_store.get_transaction(&tx_hash) {
-                            let outputs = tx_info.data().raw().outputs();
-                            let outputs_data = tx_info.data().raw().outputs_data();
-                            let output = outputs.get(index).expect("Unexpected error: cant find output cell for valid inputs");
+                        // if let Some((tx_info, _block_hash)) = chain_store.get_transaction(&tx_hash) {
+                            // let outputs = tx_info.data().raw().outputs();
+                            // let outputs_data = tx_info.data().raw().outputs_data();
+                            // let output = outputs.get(index).expect("Unexpected error: cant find output cell for valid inputs");
                             debug!("3. Found cell");
                             if let Some(type_script) = output.type_().to_opt() {
                                 debug!("4. Found cell type script");
-                                if let Some(cell_data) = outputs_data.get(index) {
-                                    let cell_data: Vec<u8> = cell_data.unpack();
-                                    debug!("5. Found cell data, making account id");
-                                    // TODO: Generalize account id encoding.
-                                    if let Ok(auction_state) = auction_utils::decode_slice::<AuctionState>(&cell_data) {
-                                        let account_id: AvoumId = auction_state.avoum_id;
-                                        debug!("6. Valid account cell");
-                                        let account_key = AvoumKey::new_with_wrapped(account_id, type_script);
-                                        let latest_states = self.latest_states.read().expect("Acquiring read lock shouldn't have issues");
-                                        if latest_states.contains_account(&account_key) {
-                                            debug!("7. Account is being watched, we should update the map to include it");
-                                            // NOTE: Assume we use an account cell once / block for simplicity.
-                                            // TODO: Stack txs with the same account cell rebased.
-                                            let mut latest_states = self.latest_states.write().expect("Acquiring write lock shouldn't have issues");
-                                            // NOTE: Assume this is latest tx, so we update accordingly.
-                                            let tx = tx.data();
-                                            latest_states.update_account(account_key, tx.clone());
-                                            debug!("8. Successfully updated account");
-                                        }
+                                let cell_data: Vec<u8> = output_data.unpack();
+                                debug!("5. Found cell data, making account id");
+                                // TODO: Generalize account id encoding to first 32 bytes.
+                                if let Ok(auction_state) = auction_utils::decode_slice::<AuctionState>(&cell_data) {
+                                    let account_id: AvoumId = auction_state.avoum_id;
+                                    debug!("6. Valid account cell");
+                                    let account_key = AvoumKey::new_with_wrapped(account_id, type_script);
+                                    let latest_states = self.latest_states.read().expect("Acquiring read lock shouldn't have issues");
+                                    if latest_states.contains_account(&account_key) {
+                                        debug!("7. Account is being watched, we should update the map to include it");
+                                        // NOTE: Assume we use an account cell once / block for simplicity.
+                                        // TODO: Stack txs with the same account cell rebased.
+                                        let mut latest_states = self.latest_states.write().expect("Acquiring write lock shouldn't have issues");
+                                        // NOTE: Assume this is latest tx, so we update accordingly.
+                                        let tx = tx.data();
+                                        latest_states.update_account(account_key, tx.clone());
+                                        debug!("8. Successfully updated account");
                                     }
                                 }
                             }

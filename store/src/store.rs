@@ -14,7 +14,7 @@ use ckb_types::{
         cell::CellMeta, BlockExt, BlockNumber, BlockView, EpochExt, EpochNumber, HeaderView,
         TransactionInfo, TransactionView, UncleBlockVecView,
     },
-    packed::{self, OutPoint},
+    packed::{self, CellOutput, OutPoint},
     prelude::*,
 };
 
@@ -325,6 +325,19 @@ pub trait ChainStore<'a>: Send + Sync + Sized {
                     packed::TransactionViewReader::from_slice_should_be_ok(&slice.as_ref());
                 (reader.unpack(), tx_info)
             })
+    }
+
+    /// Gets all cells, whether live or not.
+    fn get_outpoint_cell_meta(&'a self, out_point: &OutPoint) -> Option<(CellOutput, packed::Bytes)> {
+        let tx_hash = out_point.tx_hash();
+        let index = out_point.index();
+        // let index = Self::uint32_to_usize(index);
+        let index: u32 = index.unpack();
+        let index = index as usize;
+        let (tx_info, _block_hash) = self.get_transaction(&tx_hash)?;
+        let output = tx_info.data().raw().outputs().get(index)?;
+        let data = tx_info.data().raw().outputs_data().get(index)?;
+        Some((output, data))
     }
 
     /// Return whether cell is live
