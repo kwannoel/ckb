@@ -39,6 +39,7 @@ use tokio::sync::watch;
 use tokio::sync::{mpsc, RwLock};
 use tokio::task::block_in_place;
 
+use rebase_auction::AvoumKey;
 use ckb_avoum::AccountCellMap;
 
 pub(crate) const DEFAULT_CHANNEL_SIZE: usize = 512;
@@ -78,6 +79,8 @@ type BlockTemplateArgs = (
 
 pub(crate) type SubmitTxResult = Result<Completed, Error>;
 pub(crate) type SubmitMalleableTxResult = Result<(Completed, TransactionView), Error>;
+pub(crate) type SubmitMalleableTxResultWithAccount = Result<(Completed, TransactionView, AvoumKey), Error>;
+
 
 type FetchTxRPCResult = Option<(bool, TransactionView)>;
 
@@ -98,7 +101,7 @@ pub(crate) enum Message {
     BlockTemplate(Request<BlockTemplateArgs, BlockTemplateResult>),
     SubmitLocalTx(Request<TransactionView, SubmitTxResult>),
     SubmitMalleableLocalTx(
-        Request<(TransactionView, u8, Vec<u8>, AccountCellMap), SubmitMalleableTxResult>
+        Request<(TransactionView, u8, Vec<u8>, AccountCellMap), SubmitMalleableTxResultWithAccount>
     ),
     SubmitRemoteTx(Request<(TransactionView, Cycle, PeerIndex), ()>),
     NotifyTxs(Notify<Vec<TransactionView>>),
@@ -257,6 +260,7 @@ impl TxPoolController {
             .map_err(Into::into)
     }
 
+
     /// Submit local malleable tx to tx-pool
     pub fn submit_malleable_local_tx(
         &self,
@@ -265,8 +269,7 @@ impl TxPoolController {
         account_indices: Vec<u8>) -> Result<SubmitMalleableTxResult, AnyError> {
         debug!("Submitting local malleable tx");
         let (responder, response) = oneshot::channel();
-        let latest_states = self.latest_states.read().expect("TODO: failed");
-        let latest_states: AccountCellMap = latest_states.clone();
+        let latest_states: AccountCellMap = self.latest_states.read().expect("TODO: failed").clone();
         let request = Request::call((tx, rebase_script, account_indices, latest_states), responder);
         self.sender
             .try_send(Message::SubmitMalleableLocalTx(request))
@@ -280,7 +283,10 @@ impl TxPoolController {
             .map_err(handle_recv_error)
             .map_err(Into::into);
         debug!("Submitted local malleable tx, received response from service...");
-        res
+        let (_c, tx, account_key) = res.clone().expect("Tx Pool service failed to rebase")?;
+        let mut latest_states = self.latest_states.write().expect("");
+        latest_states.update_account(account_key, tx.data());
+        res.map(|r| r.map(|(c, tx, _key)| (c, tx)))
     }
 
     /// Submit remote tx with declared cycles and origin to tx-pool

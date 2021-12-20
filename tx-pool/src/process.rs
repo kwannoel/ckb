@@ -658,11 +658,12 @@ impl TxPoolService {
 
     // NOTE: None here is failure state where we cannot find the account cells as specified by indices.
     // TODO: Resolve dependency issues and move this into avoum library
-    fn extract_accounts(
-        chain_store: &Snapshot,
+    async fn extract_accounts(
+        &self,
         transaction: &TransactionView,
         cell_indices: Vec<u8>
     ) -> Option<Vec<AvoumKey>> {
+        let chain_store = &self.tx_pool.read().await.snapshot;
         let inputs = transaction.inputs();
         let mut res = vec![];
         for idx in cell_indices.iter() {
@@ -688,10 +689,11 @@ impl TxPoolService {
         rebase_script: u8,
         account_indices: Vec<u8>,
         latest_states: AccountCellMap,
-    ) -> Result<(Completed, TransactionView), Reject> {
+    ) -> Result<(Completed, TransactionView, AvoumKey), Reject> {
         debug!("Processing malleable tx...");
         let mut final_tx = tx.clone();
         let mut res = self.process_tx(tx.clone(), None).await;
+        let account_key = self.extract_accounts(&tx, account_indices).await.expect("No account keys found")[0].clone();
         debug!("result: {:#?}", res);
         // TODO: What about OutPointError:Dead?
         // This is matched against OutPointError::Unknown because its the error the RPC
@@ -708,28 +710,7 @@ impl TxPoolService {
             debug!("Rebasing failed... :(");
             break; // If we fail to rebase, we abandon it permanently.
         }
-        res.map(|completed| (completed, final_tx))
-        // let tx_pool = self.tx_pool.read().await;
-        // let snapshot = tx_pool.cloned_snapshot();
-        // // Try to submit the tx first
-        // debug!("Extracting accounts");
-        // let account_ids = Self::extract_accounts(&snapshot, &tx, account_indices);
-        // debug!("Extracted accounts");
-        // // Look up latest txs (if any)
-        // if let Some(account_ids) = account_ids {
-        //     for account_id in account_ids.iter() {
-        //         debug!("Extracting latest states for account: {:?}", account_id);
-        //         latest_states.get(&account_id);
-        //         debug!("Extracted latest states for account: {:?}", account_id);
-        //     }
-        // }
-        // // TODO: Rebase and continue processing tx
-        // debug!("Done rebasing, processing tx");
-
-        // FIXME: We should just scope our read...
-        // This frees the read lock to avoid a deadlock,
-        // since later there's a write to the txpool,
-        // drop(tx_pool);
+        res.map(|completed| (completed, final_tx, account_key))
     }
 
 
