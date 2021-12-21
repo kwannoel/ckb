@@ -285,7 +285,8 @@ impl TxPoolController {
         debug!("Submitted local malleable tx, received response from service...");
         let (_c, tx, account_key) = res.clone().expect("Tx Pool service failed to rebase")?;
         let mut latest_states = self.latest_states.write().expect("");
-        latest_states.update_account(account_key, tx.data());
+        latest_states.update_account(account_key.clone(), tx.data());
+        debug!("Updated account {:?}", account_key);
         res.map(|r| r.map(|(c, tx, _key)| (c, tx)))
     }
 

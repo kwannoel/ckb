@@ -692,8 +692,24 @@ impl TxPoolService {
     ) -> Result<(Completed, TransactionView, AvoumKey), Reject> {
         debug!("Processing malleable tx...");
         let mut final_tx = tx.clone();
-        let mut res = self.process_tx(tx.clone(), None).await;
         let account_key = self.extract_accounts(&tx, account_indices).await.expect("No account keys found")[0].clone();
+
+        let mut res: Result<Completed, Reject>;
+
+        debug!("Checking if account is rebaseable {:?}", &account_key);
+        // Check if it's already seen before
+        if latest_states.contains_account(&account_key) {
+            debug!("Account is rebaseable {:?}", &account_key);
+            if let Ok(new_tx) = rebase(tx.data(), &latest_states) {
+                debug!("Rebasing succeeded!");
+                let new_tx = new_tx.into_view();
+                final_tx = new_tx.clone();
+            }
+        }
+
+        // Attempt to rebase
+        res = self.process_tx(tx.clone(), None).await;
+
         debug!("result: {:#?}", res);
         // TODO: What about OutPointError:Dead?
         // This is matched against OutPointError::Unknown because its the error the RPC

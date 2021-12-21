@@ -365,8 +365,9 @@ impl PoolRpc for PoolRpcImpl {
         rebase_script: Option<u8>,
         account_indices: Option<Vec<u8>>,
     ) -> Result<H256> {
-        ckb_logger::info!("Got param 1: {:?}", rebase_script);
-        ckb_logger::info!("Got param 2: {:?}", account_indices);
+        ckb_logger::debug!("Got tx: {:?}", tx);
+        ckb_logger::debug!("Got param 1: {:?}", rebase_script);
+        ckb_logger::debug!("Got param 2: {:?}", account_indices);
         let tx: packed::Transaction = tx.into();
         let tx: core::TransactionView = tx.into_view();
 
