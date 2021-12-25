@@ -129,7 +129,6 @@ version = "0.1.0"
 dependencies = [
  "ckb-sodium",
  "ckb-standalone-types",
- "ckb-types",
  "serde",
  "serde_json",
  "sha2",
@@ -3686,7 +3685,6 @@ dependencies = [
  "auction-utils",
  "blake2b-rs",
  "ckb-standalone-types",
- "ckb-types",
 ]
 
 [[package]]

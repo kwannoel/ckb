@@ -1,11 +1,14 @@
 extern crate alloc;
 use alloc::collections::btree_map::BTreeMap;
 use ckb_types::packed::{Bytes, CellOutput, Transaction};
-use ckb_types::prelude::Unpack;
 use ckb_standalone_types::packed as standalone;
 
 use rebase_auction::{AvoumKey, RebaseError};
-use auction_utils::types::AuctionState;
+use auction_utils::types::{AvoumId, AuctionState, Hash, Script};
+
+use ckb_types::prelude::{Entity, Pack, Unpack, Builder};
+
+use std::convert::TryInto;
 
 // This is a map between account cells and latest transactions.
 // It uses the product of the account cell and script to identify txs.
@@ -52,7 +55,7 @@ pub fn make_account_key(cell_output: &CellOutput, output_data: &Bytes) -> Option
     let type_script = cell_output.type_().to_opt()?;
     // TODO: Generalize account id encoding to first 32 bytes.
     let account_id = auction_state.avoum_id;
-    let account_key = AvoumKey::new_with_wrapped(account_id, type_script);
+    let account_key = new_with_wrapped(account_id, type_script);
     Some(account_key)
 }
 
@@ -93,4 +96,57 @@ pub fn rebase(tx: Transaction, latest_states: &AccountCellMap) -> Result<Transac
     let latest_states = latest_states.inner.clone();
     let res = rebase_auction::rebase(tx, latest_states);
     res.map(cast::core_types_transaction)
+}
+
+
+// FIXME: convert this to a function
+// impl From<Script> for ckb_types::packed::Script {
+//     fn from(s: Script) -> Self {
+//         let code_hash: ckb_types::packed::Byte32 = s.code_hash.digest.pack();
+//         ckb_types::packed::Script::new_builder()
+//             .code_hash(code_hash)
+//             .hash_type(s.hash_type.into())
+//             .args(s.args.pack())
+//             .build()
+//     }
+// }
+
+// FIXME: convert this to a function
+// For ckb_types, used by server-side.
+// impl From<ckb_types::packed::Script> for Script {
+//     fn from(s: ckb_types::packed::Script) -> Self {
+//         Script {
+//             code_hash: s.code_hash().into(),
+//             hash_type: s.hash_type().into(),
+//             args: s.args().unpack(),
+//         }
+//     }
+// }
+fn unpack_script(s: ckb_types::packed::Script) -> Script {
+    Script {
+        // code_hash: s.code_hash().into(),
+        code_hash: unpack_hash(s.code_hash()),
+        hash_type: s.hash_type().into(),
+        args: s.args().unpack(),
+    }
+}
+
+// FIXME: convert this to a function
+// impl From<ckb_types::packed::Byte32> for Hash {
+//     fn from(b: ckb_types::packed::Byte32) -> Self {
+//         Hash {
+//             digest: b.as_reader().raw_data().try_into().expect("Incorrect length"),
+//         }
+//     }
+// }
+fn unpack_hash(b: ckb_types::packed::Byte32) -> Hash {
+    Hash {
+        digest: b.as_reader().raw_data().try_into().expect("Incorrect length"),
+    }
+}
+
+
+// FIXME: convert this to a function
+fn new_with_wrapped(identity: AvoumId, type_script: ckb_types::packed::Script) -> AvoumKey {
+    AvoumKey { identity: identity.unique_hash.digest, type_script: unpack_script(type_script) }
 }
